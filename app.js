@@ -1,7 +1,7 @@
 // VARS
 const PORT = 5000
 const LICHESS_API = "https://lichess.org/api/cloud-eval"
-const MIN_MOVETIME= 1000
+const MIN_MOVETIME = 1000
 // User files storage
 
 
@@ -16,15 +16,17 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`)); //Line 6
 
-
+const max_console = 5
+var console_count = 0
 
 
 
 var bestMove = { move: "aaaa", depth: 10, score: 10, provider: "" }
 engine.onmessage = function (msg) {
-    
+
 }
-engine.postMessage("uci");
+
+engine.postMessage("uci")
 
 
 function getLichessBestMove(fen, callback) {
@@ -41,16 +43,23 @@ function getLichessBestMove(fen, callback) {
     });
 }
 
-function getStockfishBestMove(fen, depth, movetime, callback) {
+function getStockfishBestMove(fen, depth, movetime, res) {
     engine.onmessage = function (msg) {
+        if (res.headersSent) {
+            return;
+        }
 
-        if (typeof (msg == "string") && msg.match("bestmove")) {
-            console.log(msg)
-            bestMove.depth = depth
-            bestMove.move = msg.split(' ')[1]
-            bestMove.score = depth
-            bestMove.provider = "stockfish"
-            callback(bestMove)
+        try {
+            if (typeof (msg == "string") && msg.match("bestmove")) {
+                console.log(msg)
+                bestMove.depth = depth
+                bestMove.move = msg.split(' ')[1]
+                bestMove.score = depth
+                bestMove.provider = "stockfish"
+                res.send(bestMove)
+            }
+        } catch (err) {
+            res.send(false)
         }
     }
 
@@ -58,11 +67,11 @@ function getStockfishBestMove(fen, depth, movetime, callback) {
     engine.postMessage("ucinewgame");
     engine.postMessage("position fen " + fen);
     if (depth != 0) {
-        console.log("using depth: "+depth)
+        console.log("using depth: " + depth)
 
         engine.postMessage("go depth " + depth);
     } else {
-        console.log("using movetime: "+movetime)
+        console.log("using movetime: " + movetime)
         engine.postMessage("go movetime " + movetime);
     }
 
@@ -76,23 +85,27 @@ app.get("/getBestMove", (req, res) => {
     if (depth > 40) {
         return res.send(false)
     }
-    if (depth == undefined || isNaN(depth) || depth=="") {
+    if (depth == undefined || isNaN(depth) || depth == "") {
         depth = 0
     }
 
-    if(movetime==undefined || isNaN(movetime) || movetime==""){
+    if (movetime == undefined || isNaN(movetime) || movetime == "") {
         movetime = MIN_MOVETIME
     }
 
     getLichessBestMove(fen, (data) => {
-        if (data) {
+        if (data != false) {
             return res.send(data)
         }
+        getLichessBestMove(fen, (data) => {
+            if (data != false) {
+                return res.send(data)
+            }
+            // use stockfish engine in case lichess api fail
 
-        // use stockfish engine in case lichess api fail
+            getStockfishBestMove(fen, depth, movetime, res)
 
-        getStockfishBestMove(fen, depth, movetime, (data) => {
-            return res.send(data)
+
         })
     })
 })
