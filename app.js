@@ -1,4 +1,6 @@
 // VARS
+const SESSION_SECRET = "Xn2r5u8x/A?D*G-KaPdSgVkYp3s6v9y$"
+
 const PORT = 5000
 const LICHESS_API = "https://lichess.org/api/cloud-eval"
 const MIN_MOVETIME = 1000
@@ -8,18 +10,36 @@ const MIN_MOVETIME = 1000
 // nodejs imports
 
 const express = require('express');
+const cookieParser = require("cookie-parser");
+const sessions = require('express-session');
 const app = express();
 const request = require('request');
 const stockfish = require("./stockfish/src/stockfish");
 const engine = stockfish()
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`)); //Line 6
+app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+//session middleware
+app.use(sessions({
+    secret: SESSION_SECRET,
+    saveUninitialized: true,
+    cookie: { maxAge: 1000 * 60 * 60 * 24 },    // 24 hour session
+    resave: false
+}));
+app.use(cookieParser());
+
+
 
 const max_console = 5
 var console_count = 0
+var last_request = 1
 
-
+function delay(time) {
+    return new Promise(resolve => setTimeout(resolve, time));
+}
 
 var bestMove = { move: "aaaa", depth: 10, score: 10, provider: "" }
 engine.onmessage = function (msg) {
@@ -31,6 +51,7 @@ engine.postMessage("uci")
 
 function getLichessBestMove(fen, callback) {
     request.get(LICHESS_API + "?fen=" + fen, { json: true }, (err, res, body) => {
+
         if (body.error != undefined) {
             callback(false)
         } else {
@@ -43,20 +64,33 @@ function getLichessBestMove(fen, callback) {
     });
 }
 
-function getStockfishBestMove(fen, depth, movetime, res) {
+function getStockfishBestMove(fen, turn, depth, movetime, req, res) {
     engine.onmessage = function (msg) {
         if (res.headersSent) {
-            return;
+            return
         }
 
         try {
             if (typeof (msg == "string") && msg.match("bestmove")) {
+                if (req.session.req_id != last_request) {
+                    return res.send(false)
+                }
+
                 console.log(msg)
+                console.log("turn: " + turn)
                 bestMove.depth = depth
                 bestMove.move = msg.split(' ')[1]
+
                 bestMove.score = depth
                 bestMove.provider = "stockfish"
+
+
                 res.send(bestMove)
+
+
+
+
+
             }
         } catch (err) {
             res.send(false)
@@ -77,11 +111,14 @@ function getStockfishBestMove(fen, depth, movetime, res) {
 
 }
 
+var request_id = 1
 
 app.get("/getBestMove", (req, res) => {
     var fen = req.query.fen
     var depth = req.query.depth
     var movetime = req.query.movetime
+    var turn = req.query.turn
+
     if (depth > 40) {
         return res.send(false)
     }
@@ -103,7 +140,13 @@ app.get("/getBestMove", (req, res) => {
             }
             // use stockfish engine in case lichess api fail
 
-            getStockfishBestMove(fen, depth, movetime, res)
+            if (req.session.req_id == undefined) {
+                req.session.req_id = 1
+            } else {
+                req.session.req_id++
+            }
+            last_request = req.session.req_id
+            getStockfishBestMove(fen, turn, depth, movetime, req, res)
 
 
         })
@@ -291,9 +334,7 @@ async function Start() {
     }
 }
 
-function delay(time) {
-    return new Promise(resolve => setTimeout(resolve, time));
-}
+
 async function checkDriver(callback) {
     do {
         await delay(100)
