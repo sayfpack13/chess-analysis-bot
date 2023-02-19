@@ -14,4 +14,3 @@ https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
 You can add your custom .exe engine in node server:
 - download https://stockfishchess.org/download/
 - put in /utils/engine
-- add the file name in ENGINE_NAMES in VARS.js (exp: stockfish-15.exe)
