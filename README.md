@@ -17,7 +17,7 @@ You can add your custom .exe engine in node server:
 - add the engine file name
 
 # SCREENSHOTS
-[Imgur](https://imgur.com/YZZok1O)
+<blockquote class="imgur-embed-pub" lang="en" data-id="YZZok1O"><a href="https://imgur.com/YZZok1O">View post on imgur.com</a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>
 
 # WARNING !!
 - Please be advised that the use of C.A.S may violate the rules and lead to disqualification or banning from tournaments and online platforms.
