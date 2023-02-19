@@ -8,3 +8,9 @@ https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldm
 
 TamperMonkey Script:
 https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
+
+
+You can add your custom .exe engine in node server:
+- download stockfish.exe
+- put in /utils/engine
+- add your the file name in ENGINE_names in VARS.js (exp: stockfish.exe)
