@@ -17,7 +17,7 @@ You can add your custom .exe engine in node server:
 - add the engine file name
 
 # SCREENSHOTS
-[img]https://i.imgur.com/YZZok1O.png[/img]
+![alt text]([http://url/to/img.png](https://i.imgur.com/YZZok1O.png))
 
 
 # WARNING !!
