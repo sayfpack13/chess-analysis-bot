@@ -1,4 +1,4 @@
-# chess-analysis-bot ENGINE + TAMPERMONKEY SCRIPT (EXTENSION)
+# chess.com bot + ENGINE + TAMPERMONKEY SCRIPT (EXTENSION)
 # best chess analysis bot made for educational purposes only !!
 
 Please keep in mind using this app can gets you banned in chess.com ...
