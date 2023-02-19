@@ -12,6 +12,12 @@
 You can add your custom .exe engine in node server:
 - download https://stockfishchess.org/download/
 - put in /utils/engine
+- open extension settings
+- change engine to "Node Server engines"
+- add the engine file name
+
+# SCREENSHOTS
+[img]https://i.imgur.com/YZZok1O.png[/img]
 
 
 # WARNING !!
