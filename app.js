@@ -61,7 +61,7 @@ app.get("/getBestMove", (req, res) => {
     var use_lichess_api = req.query.lichess || false
     var turn = req.query.turn || "w"
     var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
-    var engine_name = req.query_engine_name || VARS.ENGINE_NAMES[0]
+    var engine_name = req.query.engine_name
 
     if (depth > 20) {
         depth = 20
@@ -85,7 +85,6 @@ app.get("/getBestMove", (req, res) => {
         else if (engine_type == VARS.ENGINE_TYPES[1]) {
             // use .exe engines
             const chessEngine = new ChessEngine(turn, depth, engine_name, fen)
-
 
             chessEngine.start().then((result) => {
                 

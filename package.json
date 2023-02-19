@@ -12,6 +12,8 @@
 
     "express-session": "^1.17.3",
 
+    "nexe": "^4.0.0-rc.2",
+
     "nodemon": "^2.0.15",
 
     "request": "^2.88.2"
