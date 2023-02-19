@@ -5,7 +5,7 @@ class ChessEngine {
   constructor(
     turn = 'w',
     depth = 10,
-    engine = VARS.ENGINE_NAMES[0],
+    engine ,
     fen = ''
   ) {
     this.turn = turn
@@ -14,7 +14,7 @@ class ChessEngine {
     this.fen = fen
   }
 
- 
+
 
   isWhiteTurn() {
     return this.turn === 'w'
@@ -24,7 +24,10 @@ class ChessEngine {
     return this.turn
   }
 
- 
+
+  setEngine(engine) {
+    this.engine = engine;
+  }
 
   setDepth(depth) {
     this.depth = depth
@@ -44,7 +47,7 @@ class ChessEngine {
     )
 
     return {
-      fen:this.fen,
+      fen: this.fen,
       turn: this.turn,
       setDepth: this.depth,
       engineDepth: engineResult.depth,

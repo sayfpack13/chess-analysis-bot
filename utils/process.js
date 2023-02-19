@@ -3,11 +3,10 @@ const { VARS } = require('../VARS')
 const { isWindows } = require('./environment')
 const { windowsEnginePath, linuxEnginePath } = require('./path')
 
-const executeEngine = (
-  command,
-  engineCmd = 'go depth 10',
-  engine = VARS.ENGINE_NAMES[0]
-) => {
+const executeEngine = (command,engineCmd = 'go depth 10',engine) => {
+
+
+
   const executableEnginePath = isWindows()
     ? windowsEnginePath(engine)
     : linuxEnginePath(engine)

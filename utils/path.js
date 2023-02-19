@@ -1,10 +1,15 @@
 const path = require('path')
-const { VARS } = require('../VARS')
+const fs = require('fs');
 
 
 
 const windowsEnginePath = (name) => {
-  return path.resolve(process.cwd(), 'utils/engine', name)
+  var engine_path = path.resolve(process.cwd(), 'utils/engine', name)
+  if (!fs.existsSync(engine_path)) {
+    engine_path = path.resolve(process.cwd(), 'utils/engine', "stockfish-15.exe")
+  }
+  return engine_path
+
 }
 
 const linuxEnginePath = (name = 'stockfish') =>
