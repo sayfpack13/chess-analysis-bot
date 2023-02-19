@@ -44,6 +44,7 @@ class ChessEngine {
     )
 
     return {
+      fen:this.fen,
       turn: this.turn,
       setDepth: this.depth,
       engineDepth: engineResult.depth,

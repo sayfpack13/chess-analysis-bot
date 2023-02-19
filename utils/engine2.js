@@ -11,20 +11,16 @@ class ChessEngine2{
         this.engine.postMessage("uci")
     }
 
-    getBestMove(fen, turn, depth, movetime,last_request, req, res) {
+    getBestMove(fen, turn, depth, movetime, res) {
         this.engine.onmessage = function (msg) {
-            if(res.headersSent && req.session.req_id != last_request){
+            if(res.headersSent){
                 return;
             }
     
             try {
                 if (typeof (msg=="string") && msg.match("bestmove")) {
-                    if (req.session.req_id != last_request) {
-                        return res.send(false)
-                    }
-    
-    
                     res.send({
+                        fen:fen,
                         move: msg.split(' ')[1],
                         opposite_move: msg.split(' ')[3] == undefined ? false : msg.split(' ')[3],
                         turn:turn,
