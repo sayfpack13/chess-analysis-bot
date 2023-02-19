@@ -17,8 +17,7 @@ You can add your custom .exe engine in node server:
 - add the engine file name
 
 # SCREENSHOTS
-(https://i.imgur.com/YZZok1O.png)
-
+[Imgur](https://imgur.com/YZZok1O)
 
 # WARNING !!
 - Please be advised that the use of C.A.S may violate the rules and lead to disqualification or banning from tournaments and online platforms.
