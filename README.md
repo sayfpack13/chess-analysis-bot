@@ -3,7 +3,7 @@
 
 
 # Tools:
--TamperMonkey extension: https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en
+-TamperMonkey extension: https://chrome.google.com/webstore/detail/tampermonkey/
 
 -TamperMonkey Script: https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
 
