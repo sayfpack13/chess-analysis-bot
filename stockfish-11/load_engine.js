@@ -104,7 +104,7 @@ var load_engine = (function ()
         
         if (typeof Worker === "function") {
 			console.log(path);
-            return new Worker("C:\Users\sayfr\Desktop\chess.com-cheat\stockfish-11\testing\stockfish.js");
+            return new Worker(path);
         }
     }
     
