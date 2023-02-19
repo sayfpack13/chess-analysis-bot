@@ -1,30 +1,19 @@
-// VARS
-const SESSION_SECRET = "Xn2r5u8x/A?D*G-KaPdSgVkYp3s6v9y$"
-
-const PORT = 5000
-const LICHESS_API = "https://lichess.org/api/cloud-eval"
-const MIN_MOVETIME = 1000
-// User files storage
-
-
-// nodejs imports
-
 const express = require('express');
 const cookieParser = require("cookie-parser");
 const sessions = require('express-session');
 const app = express();
 const request = require('request');
-const stockfish = require("./stockfish/src/stockfish");
-const engine = stockfish()
+const { ChessEngine2 } = require('./utils/engine2')
+const { ChessEngine } = require("./utils/engine")
+const { VARS } = require("./VARS")
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.listen(VARS.PORT, () => console.log(`Listening on port ${VARS.PORT}`));
 
 //session middleware
 app.use(sessions({
-    secret: SESSION_SECRET,
+    secret: VARS.SESSION_SECRET,
     saveUninitialized: true,
     cookie: { maxAge: 1000 * 60 * 60 * 24 },    // 24 hour session
     resave: false
@@ -33,99 +22,38 @@ app.use(cookieParser());
 
 
 
-const max_console = 5
-var console_count = 0
+
+
+
+
+
+
 var last_request = 1
-var last_bestmove = {move:"",opposite_move:"",depth:0,score:0,provider:"stockfish"}
-
-function delay(time) {
-    return new Promise(resolve => setTimeout(resolve, time));
-}
 
 
 
-engine.onmessage = function (msg) {
-    /*
-    if (typeof (msg == "string") && msg.match("bestmove")) {
-        last_bestmove.move=msg.split(' ')[1]
-        last_bestmove.opposite_move=msg.split(' ')[3] == undefined ? false : msg.split(' ')[3]
-        console.log("last best move: "+JSON.stringify(last_bestmove))
-    }
-    */
-}
-engine.postMessage("uci")
-
-
-
-function getLichessBestMove(use_lichess_api, fen, callback) {
-    if (use_lichess_api==false) {
+function getLichessBestMove(use_lichess_api, fen, turn, callback) {
+    if (use_lichess_api == "false") {
         callback(false)
-    }else{
-        request.get(LICHESS_API + "?fen=" + fen, { json: true }, (err, res, body) => {
+    } else {
+        request.get(VARS.LICHESS_API + "?fen=" + fen, { json: true }, (err, res, body) => {
 
             if (body.error != undefined) {
                 callback(false)
             } else {
-    
-    
+
+
                 callback({
                     move: body.pvs[0].moves.split(' ')[0],
                     opposite_move: false,
+                    turn: turn,
                     score: body.pvs[0].cp,
                     depth: body.depth,
                     provider: "lichess"
                 })
             }
         });
-    
-    }
-}
 
-
-function getStockfishBestMove(fen, turn, depth, movetime, req, res) {
-    engine.onmessage = function (msg) {
-        if(res.headersSent && req.session.req_id != last_request){
-            return;
-        }
-
-        try {
-            if (typeof (msg=="string") && msg.match("bestmove")) {
-                if (req.session.req_id != last_request) {
-                    return res.send(false)
-                }
-
-                console.log(msg)
-
-
-                res.send({
-                    move: msg.split(' ')[1],
-                    opposite_move: msg.split(' ')[3] == undefined ? false : msg.split(' ')[3],
-                    depth: depth,
-                    score: depth,
-                    provider: "stockfish"
-                })
-
-            }
-        } catch (err) {
-            if(res.headersSent){
-                return;
-            }
-            res.send(false)
-        }
-    }
-
-
-    // run chess engine
-    console.log("updated turn: " + turn)
-    engine.postMessage("ucinewgame");
-    engine.postMessage("position fen " + fen);
-    if (depth != 0) {
-        console.log("using depth: " + depth)
-
-        engine.postMessage("go depth " + depth);
-    } else {
-        console.log("using movetime: " + movetime)
-        engine.postMessage("go movetime " + movetime);
     }
 }
 
@@ -133,29 +61,24 @@ function getStockfishBestMove(fen, turn, depth, movetime, req, res) {
 
 app.get("/getBestMove", (req, res) => {
     var fen = req.query.fen
-    var depth = req.query.depth
-    var movetime = req.query.movetime
-    var turn = req.query.turn
-    var use_lichess_api = req.query.lichess
+    var depth = req.query.depth || 10
+    var movetime = req.query.movetime || 500
+    var use_lichess_api = req.query.lichess || false
+    var turn = req.query.turn || "w"
+    var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
+    var engine_name = req.query_engine_name || VARS.ENGINE_NAMES[0]
 
-    if (depth > 40) {
-        return res.send(false)
-    }
-    if (depth == undefined || isNaN(depth) || depth == "") {
-        depth = 0
-    }
-
-    if (movetime == undefined || isNaN(movetime) || movetime == "") {
-        movetime = MIN_MOVETIME
+    if (depth > 20) {
+        depth = 20
     }
 
 
-    getLichessBestMove(use_lichess_api, fen, (data) => {
-        if (data!=false) {
+    getLichessBestMove(use_lichess_api, fen, turn, (data) => {
+        if (data != false) {
             return res.send(data)
         }
 
-        // use stockfish engine in case lichess api fail
+        // using stockfish engine
 
         if (req.session.req_id == undefined) {
             req.session.req_id = 1
@@ -163,7 +86,33 @@ app.get("/getBestMove", (req, res) => {
             req.session.req_id++
         }
         last_request = req.session.req_id
-        getStockfishBestMove(fen, turn, depth, movetime, req, res)
+
+
+        if (engine_type == VARS.ENGINE_TYPES[0]) {
+            // use .js engines
+            const chessEngine2 = new ChessEngine2()
+            chessEngine2.getBestMove(fen, turn, depth, movetime, last_request, req, res)
+        }
+        else if (engine_type == VARS.ENGINE_TYPES[1]) {
+            // use .exe engines
+            const chessEngine = new ChessEngine(turn, depth, engine_name, fen)
+
+
+            chessEngine.start().then((result) => {
+                if (req.session.req_id != last_request) {
+                    return res.send(false)
+                }
+                res.send({
+                    move: result.bestMove,
+                    opposite_move: false,
+                    turn: result.turn,
+                    depth: result.engineDepth,
+                    score: depth,
+                    provider: engine_name
+                })
+            })
+
+        }
 
     })
 })
