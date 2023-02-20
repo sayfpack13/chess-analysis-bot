@@ -535,15 +535,6 @@ class UserGui {
 		
 		
 
-		// Listener for the close button, closes the internal GUI
-		this.document.querySelector("#button-close-gui").addEventListener('click', e => {
-			e.preventDefault();
-
-				
-			
-
-			//this.close();
-		});
 
 		const guiObserver = new MutationObserver(adjustFrameSize);
 		const guiElement = this.document.querySelector("#gui");
