@@ -56,7 +56,7 @@ class UserGui {
 					}
 			
 					#gui {
-						height: 50%;
+						height: fit-content;
 					}
 			
 					.rendered-form {
@@ -69,7 +69,7 @@ class UserGui {
 						z-index: 10;
 						background-color: #2196F3;
 						color: #fff;
-						height: 50%;
+						height: fit-content;
 					}
 
 					.header-item-container {
@@ -87,7 +87,7 @@ class UserGui {
 					
 					#button-close-gui {
 						vertical-align: middle;
-						display:none;
+						
 					}
 
 					div .form-group {
@@ -352,7 +352,7 @@ class UserGui {
 		const guiHeight = this.settings.window.size.height;
 
 		const x = (screen.width - guiWidth) / 2;
-		const y = (screen.height - guiHeight) / 4;
+		const y = (screen.height - guiHeight) / 2;
 		
 		return { "x" : x, "y": y };
 	}
@@ -362,7 +362,7 @@ class UserGui {
 		const guiHeight = this.settings.window.size.height;
 
 		const x = (window.innerWidth - guiWidth) / 2;
-		const y = (window.innerHeight - guiHeight) / 4;
+		const y = (window.innerHeight - guiHeight) / 2;
 		
 		return { "x" : x, "y": y };
 	}
@@ -449,7 +449,7 @@ class UserGui {
 			const bR = iFrame.getBoundingClientRect();
 
 			const windowWidth = window.innerWidth,
-				windowHeight = window.innerHeight%2;
+				windowHeight = window.innerHeight;
 
 			let x, y;
 
@@ -532,12 +532,20 @@ class UserGui {
 			dragging = false;
 			resizing = false;
 		});
+		
 
 		// Listener for the close button, closes the internal GUI
 		this.document.querySelector("#button-close-gui").addEventListener('click', e => {
 			e.preventDefault();
+			if(this.closed==undefined)
+				this.closed=true;
+			else if(this.closed==true)
+				this.document.querySelector("#content").style.display="block";
+			else if(this.closed==false)
+				this.document.querySelector("#content").style.display="none";
+			
 
-			this.close();
+			//this.close();
 		});
 
 		const guiObserver = new MutationObserver(adjustFrameSize);
@@ -598,7 +606,7 @@ class UserGui {
 				this.settings.window.size.width,
 				this.settings.window.size.dynamicSize 
 					? this.window.document.body.offsetHeight + (this.window.outerHeight - this.window.innerHeight)
-					: this.settings.window.size.height/2
+					: this.settings.window.size.height
 			);
 
 			this.document = this.window.document;
@@ -645,7 +653,7 @@ class UserGui {
 			top: ${top}px;
 			left: ${left}px;
 			width: ${this.settings.window.size.width};
-			height: ${this.settings.window.size.height/2};
+			height: ${this.settings.window.size.height};
 			border: 0;
 			opacity: 0;
 			transition: all ${fadeInSpeedMs/1000}s;
