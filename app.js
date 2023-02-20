@@ -83,7 +83,7 @@ app.get("/getBestMove", (req, res) => {
             chessEngine2.getBestMove(fen, turn, depth, movetime, res)
         }
         else if (engine_type == VARS.ENGINE_TYPES[1]) {
-            // use .exe engines
+            // use local system engines
             const chessEngine = new ChessEngine(turn, depth, engine_name, fen)
 
             chessEngine.start().then((result) => {
