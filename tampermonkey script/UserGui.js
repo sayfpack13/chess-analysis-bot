@@ -30,7 +30,7 @@ class UserGui {
 	iFrame = undefined;
 	settings = {
 		"window" : {
-			"title" : "No title set",
+			"title" : "C.A.S",
 			"name" : "userscript-gui",
 			"external" : false,
 			"centered" : false,
@@ -534,19 +534,11 @@ class UserGui {
 		});
 		
 		
-		let closed=false;
+
 		// Listener for the close button, closes the internal GUI
 		this.document.querySelector("#button-close-gui").addEventListener('click', e => {
 			e.preventDefault();
-			if(closed==true){
-				closed=false;
-				document.querySelector("#content").style.display="block";
-			}
-			else{
-				closed=true;
-				document.querySelector("#content").style.display="none";
-				
-			}
+
 				
 			
 
