@@ -349,7 +349,7 @@ class UserGui {
 
 	#getCenterScreenPosition() {
 		const guiWidth = this.settings.window.size.width;
-		const guiHeight = this.settings.window.size.height;
+		const guiHeight = this.settings.window.size.height/2;
 
 		const x = (screen.width - guiWidth) / 2;
 		const y = (screen.height - guiHeight) / 2;
