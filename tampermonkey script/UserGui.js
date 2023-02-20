@@ -349,10 +349,10 @@ class UserGui {
 
 	#getCenterScreenPosition() {
 		const guiWidth = this.settings.window.size.width;
-		const guiHeight = this.settings.window.size.height/2;
+		const guiHeight = this.settings.window.size.height;
 
 		const x = (screen.width - guiWidth) / 2;
-		const y = (screen.height - guiHeight) / 2;
+		const y = (screen.height - guiHeight) / 4;
 		
 		return { "x" : x, "y": y };
 	}
@@ -362,7 +362,7 @@ class UserGui {
 		const guiHeight = this.settings.window.size.height;
 
 		const x = (window.innerWidth - guiWidth) / 2;
-		const y = (window.innerHeight - guiHeight) / 2;
+		const y = (window.innerHeight - guiHeight) / 4;
 		
 		return { "x" : x, "y": y };
 	}
@@ -598,7 +598,7 @@ class UserGui {
 				this.settings.window.size.width,
 				this.settings.window.size.dynamicSize 
 					? this.window.document.body.offsetHeight + (this.window.outerHeight - this.window.innerHeight)
-					: this.settings.window.size.height
+					: this.settings.window.size.height/2
 			);
 
 			this.document = this.window.document;
@@ -645,7 +645,7 @@ class UserGui {
 			top: ${top}px;
 			left: ${left}px;
 			width: ${this.settings.window.size.width};
-			height: ${this.settings.window.size.height};
+			height: ${this.settings.window.size.height/2};
 			border: 0;
 			opacity: 0;
 			transition: all ${fadeInSpeedMs/1000}s;
