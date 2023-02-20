@@ -2,7 +2,7 @@
 # best chess analysis bot made for educational purposes only !!
 
 
-# Tools:
+# Requirements:
 -TamperMonkey extension: https://www.tampermonkey.net/
 
 -TamperMonkey Script: https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
