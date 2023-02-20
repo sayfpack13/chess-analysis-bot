@@ -533,16 +533,22 @@ class UserGui {
 			resizing = false;
 		});
 		
-
+		
+		let closed=false;
 		// Listener for the close button, closes the internal GUI
 		this.document.querySelector("#button-close-gui").addEventListener('click', e => {
 			e.preventDefault();
-			if(this.closed==undefined)
-				this.closed=true;
-			else if(this.closed==true)
+			if(closed==true){
+				closed=false;
 				this.document.querySelector("#content").style.display="block";
-			else if(this.closed==false)
+			}
+				
+			else{
+				closed=true;
 				this.document.querySelector("#content").style.display="none";
+				
+			}
+				
 			
 
 			//this.close();
