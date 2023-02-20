@@ -540,12 +540,11 @@ class UserGui {
 			e.preventDefault();
 			if(closed==true){
 				closed=false;
-				this.document.querySelector("#content").style.display="block";
+				document.querySelector("#content").style.display="block";
 			}
-				
 			else{
 				closed=true;
-				this.document.querySelector("#content").style.display="none";
+				document.querySelector("#content").style.display="none";
 				
 			}
 				
