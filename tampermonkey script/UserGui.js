@@ -56,7 +56,7 @@ class UserGui {
 					}
 			
 					#gui {
-						height: fit-content;
+						height: 50%;
 					}
 			
 					.rendered-form {
@@ -69,7 +69,7 @@ class UserGui {
 						z-index: 10;
 						background-color: #2196F3;
 						color: #fff;
-						height: fit-content;
+						height: 50%;
 					}
 
 					.header-item-container {
@@ -449,7 +449,7 @@ class UserGui {
 			const bR = iFrame.getBoundingClientRect();
 
 			const windowWidth = window.innerWidth,
-				windowHeight = window.innerHeight;
+				windowHeight = window.innerHeight%2;
 
 			let x, y;
 
