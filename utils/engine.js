@@ -2,16 +2,9 @@ const { VARS } = require('../VARS')
 const { executeEngine } = require('./process')
 
 class ChessEngine {
-  constructor(
-    turn = 'w',
-    depth = 10,
-    engine ,
-    fen = ''
-  ) {
-    this.turn = turn
-    this.depth = depth
-    this.engine = engine
-    this.fen = fen
+
+  constructor() {
+
   }
 
 
@@ -25,21 +18,21 @@ class ChessEngine {
   }
 
 
-  setEngine(engine) {
-    this.engine = engine;
-  }
 
-  setDepth(depth) {
-    this.depth = depth
-    return this
-  }
+
 
   reset() {
     this.turn = 'w'
-
   }
 
-  async start() {
+  async start(turn, depth, engine_name, fen) {
+    this.turn = turn
+    this.depth = depth
+    this.engine = engine_name
+    this.fen = fen
+
+
+
     const engineResult = await executeEngine(
       `position fen ${this.fen}\n`,
       `go depth ${this.depth}`,

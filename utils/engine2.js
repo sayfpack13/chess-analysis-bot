@@ -46,7 +46,7 @@ class ChessEngine2{
         if (depth != 0) {
             console.log("using depth: " + depth)
     
-            this. engine.postMessage("go depth " + depth);
+            this.engine.postMessage("go depth " + depth);
         } else {
             console.log("using movetime: " + movetime)
             this.engine.postMessage("go movetime " + movetime);
