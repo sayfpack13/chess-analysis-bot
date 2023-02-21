@@ -52,7 +52,9 @@ function getLichessBestMove(use_lichess_api, fen, turn, callback) {
     }
 }
 
-
+const chessEngine = new ChessEngine()
+const chessEngine2 = new ChessEngine2()
+var counter=0
 
 app.get("/getBestMove", (req, res) => {
     var fen = req.query.fen
@@ -67,7 +69,8 @@ app.get("/getBestMove", (req, res) => {
         depth = 20
     }
 
-
+    counter++
+    console.log(counter+")")
     getLichessBestMove(use_lichess_api, fen, turn, (data) => {
         if (data != false) {
             return res.send(data)
@@ -79,14 +82,13 @@ app.get("/getBestMove", (req, res) => {
 
         if (engine_type == VARS.ENGINE_TYPES[0]) {
             // use .js engines
-            const chessEngine2 = new ChessEngine2()
+            
             chessEngine2.getBestMove(fen, turn, depth, movetime, res)
         }
         else if (engine_type == VARS.ENGINE_TYPES[1]) {
             // use local system engines
-            const chessEngine = new ChessEngine(turn, depth, engine_name, fen)
 
-            chessEngine.start().then((result) => {
+            chessEngine.start(turn, depth, engine_name, fen).then((result) => {
                 
                     res.send({
                         fen:result.fen,
