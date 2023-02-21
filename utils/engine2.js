@@ -25,6 +25,7 @@ class ChessEngine2{
                         opposite_move: msg.split(' ')[3] == undefined ? false : msg.split(' ')[3],
                         turn:turn,
                         depth: depth,
+                        movetime: movetime,
                         score: depth,
                         provider: "stockfish"
                     })
