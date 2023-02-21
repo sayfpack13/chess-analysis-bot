@@ -64,6 +64,7 @@ app.get("/getBestMove", (req, res) => {
     var turn = req.query.turn || "w"
     var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
     var engine_name = req.query.engine_name
+    var engine_mode=req.query.engine_mode || 0
 
     if (depth > 20) {
         depth = 20
@@ -88,18 +89,19 @@ app.get("/getBestMove", (req, res) => {
         else if (engine_type == VARS.ENGINE_TYPES[1]) {
             // use local system engines
 
-            chessEngine.start(turn, depth, engine_name, fen).then((result) => {
-                
+            chessEngine.start(engine_mode,turn, depth,movetime, engine_name, fen).then((result) => {
+
+
                     res.send({
                         fen:result.fen,
                         move: result.bestMove,
                         opposite_move: false,
                         turn: result.turn,
                         depth: result.engineDepth,
+                        movetime: movetime,
                         score: depth,
                         provider: engine_name
                     })
-                
 
             })
 
