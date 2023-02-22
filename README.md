@@ -9,17 +9,17 @@
 
 -Docker commands:
 
-docker run -d --name cas -p 5000:5000 sayfpack/chess-analysis-bot:1.5
+- docker run -d --name cas -p 5000:5000 sayfpack/chess-analysis-bot:1.5
 
-docker exec -it cas sh
+- docker exec -it cas sh
 
-wget https://stockfishchess.org/files/stockfish_15.1_linux_x64_bmi2.zip
+- wget https://stockfishchess.org/files/stockfish_15.1_linux_x64_avx2.zip
 
-unzip https://stockfishchess.org/files/stockfish_15.1_linux_x64_bmi2.zip
+- unzip stockfish_15.1_linux_x64_avx2.zip
 
-cd stockfish_15.1_linux_x64_bmi2
+- cd stockfish_15.1_linux_x64_avx2
 
-mv stockfish_15.1_x64_bmi2 ../
+- mv stockfish-ubuntu-20.04-x86-64-avx2 ../
 
 
 
