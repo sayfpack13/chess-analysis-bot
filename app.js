@@ -3,7 +3,7 @@ const cookieParser = require("cookie-parser");
 const sessions = require('express-session');
 const app = express();
 const request = require('request');
-const { ChessEngine2 } = require('./utils/engine2')
+//const { ChessEngine2 } = require('./utils/engine2')
 const { ChessEngine } = require("./utils/engine")
 const { VARS } = require("./VARS")
 
@@ -57,13 +57,13 @@ const chessEngine = new ChessEngine()
 var counter = 0
 
 app.get("/getBestMove", (req, res) => {
-    var fen = req.query.fen
+    var fen = req.query.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     var depth = req.query.depth || 10
     var movetime = req.query.movetime || 500
     var use_lichess_api = req.query.lichess || false
     var turn = req.query.turn || "w"
     //var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
-    var engine_name = req.query.engine_name
+    var engine_name = req.query.engine_name || "stockfish-15.exe"
     var engine_mode = req.query.engine_mode || 0
 
 
