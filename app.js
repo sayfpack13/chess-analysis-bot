@@ -54,7 +54,7 @@ function getLichessBestMove(use_lichess_api, fen, turn, callback) {
 
 const chessEngine = new ChessEngine()
 const chessEngine2 = new ChessEngine2()
-var counter=0
+var counter = 0
 
 app.get("/getBestMove", (req, res) => {
     var fen = req.query.fen
@@ -64,14 +64,20 @@ app.get("/getBestMove", (req, res) => {
     var turn = req.query.turn || "w"
     var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
     var engine_name = req.query.engine_name
-    var engine_mode=req.query.engine_mode || 0
+    var engine_mode = req.query.engine_mode || 0
+
+    if(engine_type==VARS.WINDOWS_ENGINE){
+        if(!engine_name.includes(".exe")){
+            engine_name+=".exe"
+        }
+    }
 
     if (depth > 20) {
         depth = 20
     }
 
     counter++
-    console.log(counter+")")
+    console.log(counter + ")")
     getLichessBestMove(use_lichess_api, fen, turn, (data) => {
         if (data != false) {
             return res.send(data)
@@ -80,28 +86,29 @@ app.get("/getBestMove", (req, res) => {
         // using stockfish engine
 
 
-
-        if (engine_type == VARS.ENGINE_TYPES[0]) {
-            // use .js engines
-            
-            chessEngine2.getBestMove(fen, turn, depth, movetime, res)
-        }
-        else if (engine_type == VARS.ENGINE_TYPES[1]) {
+        /*
+                if (engine_type == VARS.ENGINE_TYPES[0]) {
+                    // use .js engines
+                    
+                    chessEngine2.getBestMove(fen, turn, depth, movetime, res)
+                }
+                */
+        if (engine_type == VARS.ENGINE_TYPES[1] || true) {
             // use local system engines
 
-            chessEngine.start(engine_mode,turn, depth,movetime, engine_name, fen).then((result) => {
+            chessEngine.start(engine_mode, turn, depth, movetime, engine_name, fen).then((result) => {
 
 
-                    res.send({
-                        fen:result.fen,
-                        move: result.bestMove,
-                        opposite_move: false,
-                        turn: result.turn,
-                        depth: result.engineDepth,
-                        movetime: movetime,
-                        score: depth,
-                        provider: engine_name
-                    })
+                res.send({
+                    fen: result.fen,
+                    move: result.bestMove,
+                    opposite_move: false,
+                    turn: result.turn,
+                    depth: result.engineDepth,
+                    movetime: movetime,
+                    score: depth,
+                    provider: engine_name
+                })
 
             })
 
