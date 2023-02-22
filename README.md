@@ -7,7 +7,7 @@
 
 -TamperMonkey Script: https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
 
-- Docker labs commands:
+-Docker commands:
 
 docker run -d --name cas -p 5000:5000 sayfpack/chess-analysis-bot:1.5
 
