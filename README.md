@@ -19,7 +19,7 @@
 
 - cd stockfish_15.1_linux_x64_avx2
 
-- mv stockfish-ubuntu-20.04-x86-64-avx2 ../
+- mv stockfish-ubuntu-20.04-x86-64-avx2 ./utils/engine
 
 
 
