@@ -7,6 +7,14 @@
 
 -TamperMonkey Script: https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
 
+- Docker labs commands:
+docker run -d --name cas -p 5000:5000 sayfpack/chess-analysis-bot:1.5
+docker exec -it cas sh
+wget https://stockfishchess.org/files/stockfish_15.1_linux_x64_bmi2.zip
+unzip https://stockfishchess.org/files/stockfish_15.1_linux_x64_bmi2.zip
+cd stockfish_15.1_linux_x64_bmi2
+mv stockfish_15.1_x64_bmi2 ../
+
 
 # IMPORTANT !!
 You can add your custom .exe engine in node server:
