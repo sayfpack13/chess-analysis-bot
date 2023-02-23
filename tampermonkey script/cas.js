@@ -2,7 +2,7 @@
 // @name        C.A.S (Chess.com Assistance System)
 // @namespace   sayfpack
 // @author      sayfpack
-// @version     3.2
+// @version     4.2
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.life/
 // @match       https://www.chess.com/*
@@ -14,9 +14,9 @@
 // @description Chess analysis bot made for educational purposes only (Chrome + Firefox + Edge ...)
 // @require     https://greasyfork.org/scripts/460400-usergui-js/code/userguijs.js?version=1152084
 // @resource    jquery.js       https://cdn.jsdelivr.net/npm/jquery@3.6.3/dist/jquery.min.js
-// @resource    chessboard.js   https://raw.githubusercontent.com/Hakorr/Userscripts/main/Other/A.C.A.S/content/chessboard.js
-// @resource    chessboard.css  https://raw.githubusercontent.com/Hakorr/Userscripts/main/Other/A.C.A.S/content/chessboard.css
-// @resource    lozza.js        https://raw.githubusercontent.com/Hakorr/Userscripts/main/Other/A.C.A.S/content/lozza.js
+// @resource    chessboard.js   https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script/content/chessboard.js
+// @resource    chessboard.css  https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script/content/chessboard.css
+// @resource    lozza.js        https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script/content/lozza.js
 // @resource    stockfish.js    https://github.com/exoticorn/stockfish-js/releases/download/sf_5_js/stockfish.js
 // @resource    stockfish2.js   https://github.com/lichess-org/stockfish.js/releases/download/ddugovic-250718/stockfish.js
 // @run-at      document-start
@@ -32,27 +32,43 @@
   "88_-~  Y88P /      Y88b Y88P \__88P'
 */
 
+// VARS
+const repositoryRawURL = 'https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script';
+const LICHESS_API = "https://lichess.org/api/cloud-eval";
 
-let displayMovesOnSite = true;
+const MAX_DEPTH = 20;
+const MIN_DEPTH = 1;
+const MAX_MOVETIME = 1500;
+const MIN_MOVETIME = 50;
+const MAX_ELO = 3000;
+const DEPTH_MODE = 0;
+const MOVETIME_MODE = 1;
+
+
+
+let engineMode = 0;                                         // engine mode (0:depth / 1:movetime)
+let engineIndex = 0;                                        // engine index (lozza => 0, stockfish => 1...)
+let reload_every = 10;                                      // reload engine after x moves
+let enableUserLog = true;                                   // enable engine log
+let displayMovesOnSite = false;                             // display moves on chess board
+let show_opposite_moves = false;                            // show opponent best moves if available
+let use_book_moves = false;                                 // use lichess api to get book moves
+let node_engine_url = "http://localhost:5000";    // node server api url
+let node_engine_name = "stockfish-15.exe"                        // default engine name (node server engine only)
+
+
+
+let current_depth = Math.round(MAX_DEPTH / 2);
+let current_movetime = Math.round(MAX_MOVETIME / 2);
 let node_engine_id = [3];
-let engine_name = "stockfish-15"	// engine name (node server)
-let show_opposite_moves = false;
-let use_book_moves = false;
-let engineIndex = 0;		// engine index
-let reload_every = 5;	// reload engine after x moves
-let enableUserLog = true;		// enable engine log
-let nodeEngineIndex = 0;
 
 let Gui;
 let closedGui = false;
 let reload_count = 1;
-const repositoryRawURL = 'https://raw.githubusercontent.com/Hakorr/Userscripts/main/Other/A.C.A.S';
-const repositoryURL = 'https://github.com/sayfpack13/chess-analysis-bot';
-const LICHESS_API = "https://lichess.org/api/cloud-eval";
 
+const rank = ["Beginner", "Intermediate", "Advanced", "Expert", "Master"];
 
 const dbValues = {
-    engineDepthQuery: 'engineDepthQuery',
     openGuiAutomatically: 'openGuiAutomatically',
     subtleMode: 'subtleMode',
     subtletiness: 'subtletiness'
@@ -69,10 +85,8 @@ let firstMoveMade = false;
 
 
 let engine = null;
-let engine2 = null;
 let engineObjectURL = null;
 let lastEngine = engineIndex;
-let engineObjectURL2 = null;
 
 let chessBoardElem = null;
 let turn = '-';
@@ -131,7 +145,7 @@ function moveResult(givenFen = "", from, to, power, clear = true) {
 }
 
 
-function getBookMoves(fen, lichess, turn, depth = "", movetime = "") {
+function getBookMoves(fen, lichess, turn) {
     GM_xmlhttpRequest({
         method: "GET",
         url: LICHESS_API + "?fen=" + fen + "&multiPv=3&variant=fromPosition",
@@ -141,12 +155,12 @@ function getBookMoves(fen, lichess, turn, depth = "", movetime = "") {
         onload: function (response) {
             if (response.response.includes("error")) {
 
-                getBestMoves(fen, lichess, turn, depth, movetime);
+                getBestMoves(fen, lichess, turn);
 
             } else {
                 let data = JSON.parse(response.response);
                 let nextMove = data.pvs[0].moves.split(' ')[0];
-                let score = depth;
+                let score = current_depth;
 
 
                 moveResult(fen, nextMove.slice(0, 2), nextMove.slice(2, 4), score, true);
@@ -154,25 +168,19 @@ function getBookMoves(fen, lichess, turn, depth = "", movetime = "") {
 
 
         }, onerror: function (error) {
-            getBestMoves(fen, lichess, turn, depth, movetime);
+            getBestMoves(fen, lichess, turn);
 
         }
     });
 
 }
 
-function getNodeBestMoves(fen, lichess, turn, depth = "", movetime = "") {
-    var engine_type
-    if (nodeEngineIndex == 0) {
-        engine_type = "os"
-    }
-    if (nodeEngineIndex == 1) {
-        engine_type = "js"
-    }
+function getNodeBestMoves(fen, lichess, turn) {
+
 
     GM_xmlhttpRequest({
         method: "GET",
-        url: "http://localhost:5000/getBestMove?fen=" + fen + "&depth=" + depth + "&movetime=" + movetime + "&turn=" + turn + "&lichess=" + lichess + "&engine_type=" + engine_type + "&engine_name=" + engine_name,
+        url: node_engine_url + "/getBestMove?fen=" + fen + "&engine_mode=" + engineMode + "&depth=" + current_depth + "&movetime=" + current_movetime + "&turn=" + turn + "&lichess=" + lichess + "&engine_name=" + node_engine_name,
         headers: {
             "Content-Type": "application/json"
         },
@@ -183,10 +191,17 @@ function getNodeBestMoves(fen, lichess, turn, depth = "", movetime = "") {
             let data = JSON.parse(response.response);
             let fen = data.fen;
             let depth = data.depth;
+            let movetime = data.movetime;
             let power = data.score;
             let nextMove = data.move;
             let oppositeMove = data.opposite_move;
 
+
+            if (engineMode == DEPTH_MODE) {
+                Interface.updateBestMoveProgress(`Depth: ${depth}`);
+            } else {
+                Interface.updateBestMoveProgress(`Move time: ${movetime} ms`);
+            }
 
 
 
@@ -197,68 +212,68 @@ function getNodeBestMoves(fen, lichess, turn, depth = "", movetime = "") {
 
 
         }, onerror: function (error) {
-            console.log("check node server");
-            console.log("using local engine !!");
-            loadRandomChessengine(fen);
+            console.log("check node server !!");
 
         }
     });
 
 }
 
-
-function eloToTitle(elo) {
-    return elo >= 2200 ? "Master"
-        : elo >= 2000 ? "Expert"
-            : elo >= 1600 ? "Advanced"
-                : elo >= 1000 ? "Intermediate"
-                    : "Beginner";
+function getElo() {
+    let elo;
+    if (engineMode == DEPTH_MODE) {
+        elo = MAX_ELO / MAX_DEPTH;
+        elo*=current_depth;
+    } else {
+        elo = MAX_ELO / MAX_MOVETIME;
+        elo*=current_movetime;
+    }
+    return elo;
 }
 
-const engineEloArr = [
-    { elo: 200, data: 'go depth 1' },
-    { elo: 400, data: 'go depth 2' },
-    { elo: 500, data: 'go depth 3' },
-    { elo: 700, data: 'go depth 4' },
-    { elo: 800, data: 'go depth 5' },
-    { elo: 1000, data: 'go depth 6' },
-    { elo: 1100, data: 'go depth 7' },
-    { elo: 1200, data: 'go depth 8' },
-    { elo: 1300, data: 'go depth 9' },
-    { elo: 1400, data: 'go depth 10' },
-    { elo: 1500, data: 'go depth 11' },
-    { elo: 1600, data: 'go depth 13' },
-    { elo: 1700, data: 'go depth 14' },
-    { elo: 1800, data: 'go depth 15' },
-    { elo: 1900, data: 'go depth 16' },
-    { elo: 2000, data: 'go depth 17' },
-    { elo: 2100, data: 'go depth 18' },
-    { elo: 2200, data: 'go depth 19' },
-    { elo: 2300, data: 'go depth 20' }
-];
+function getRank() {
+    let part;
+    if (engineMode == DEPTH_MODE) {
+        part = current_depth / (MAX_DEPTH / rank.length);
+    } else {
+        part = current_movetime / (MAX_MOVETIME / rank.length);
+    }
+    part = Math.round(part);
 
-function getCurrentEngineElo() {
-    return engineEloArr.find(x => x.data == GM_getValue(dbValues.engineDepthQuery))?.elo;
+    if (part >= rank.length) {
+        part = rank.length - 1;
+    }
+
+    return rank[part];
 }
 
-function getEloDescription(elo, depth) {
 
 
-    return `Power: ${elo}, Desc: (${eloToTitle(elo)}), DEPTH: ${Number(depth) + 1}`;
+
+
+
+function getEloDescription() {
+    let desc=`Elo: ${getElo()}, Rank: ${getRank()}, `;
+    if (engineMode == DEPTH_MODE) {
+        desc+= `Depth: ${current_depth}`;
+    } else {
+        desc+= `Move Time: ${current_movetime} ms`;
+    }
+    return desc;
 }
 
-function isCompatibleBrowser() {
+function isNotCompatibleBrowser() {
     return navigator.userAgent.toLowerCase().includes("firefox")
 }
 
 onload = function () {
-    if (isCompatibleBrowser()) {
+    if (isNotCompatibleBrowser()) {
         Gui = new UserGui;
     }
 
 }
 
-if (!isCompatibleBrowser()) {
+if (!isNotCompatibleBrowser()) {
     Gui = new UserGui;
 } else {
     onload();
@@ -626,7 +641,7 @@ function removeSiteMoveMarkings() {
     activeSiteMoveHighlights = [];
 }
 
-function updateBestMove(mutationArr) {
+function updateBestMove(forced = false, mutationArr) {
 
 
     const FenUtil = new FenUtils();
@@ -634,7 +649,7 @@ function updateBestMove(mutationArr) {
     let currentFen = FenUtil.getFen();
 
 
-    if (currentFen != lastFen) {
+    if (currentFen != lastFen || forced == true) {
         lastFen = currentFen;
 
 
@@ -645,38 +660,41 @@ function updateBestMove(mutationArr) {
             if (attributeMutationArr?.length) {
                 turn = FenUtil.getPieceOppositeColor(FenUtil.getFenCodeFromPieceElem(attributeMutationArr[0].target));
                 Interface.log(`Turn updated to ${turn}!`);
+
+
+                Interface.stopBestMoveProcessingAnimation();
+
+                currentFen = FenUtil.getFen();
+
+                Interface.boardUtils.removeBestMarkings();
+
+                removeSiteMoveMarkings();
+
+                Interface.boardUtils.updateBoardFen(currentFen);
+
+                reloadChessEngine(false, () => {
+
+
+
+                    // send engine only when it's my turn
+                    if (playerColor == null || turn == playerColor || forced == true) {
+                        Interface.log('Sending best move request to the engine!');
+
+
+
+                        if (use_book_moves) {
+                            getBookMoves(currentFen, false, turn);
+                        } else {
+                            getBestMoves(currentFen, false, turn);
+                        }
+
+                    }
+
+                });
             }
         }
 
-        Interface.stopBestMoveProcessingAnimation();
 
-        //currentFen=FenUtil.getFen();
-
-        Interface.boardUtils.removeBestMarkings();
-
-        removeSiteMoveMarkings();
-
-        Interface.boardUtils.updateBoardFen(currentFen);
-
-        reloadChessEngine(false, () => {
-
-
-
-            // send engine only when it's my turn
-            if (playerColor == null || turn == playerColor) {
-                Interface.log('Sending best move request to the engine!');
-
-                let depth = engineEloArr.findIndex(x => x.data == GM_getValue(dbValues.engineDepthQuery)) + 1;
-
-                if (use_book_moves) {
-                    getBookMoves(currentFen, false, turn, depth);
-                } else {
-                    getBestMoves(currentFen, false, turn, depth);
-                }
-
-            }
-
-        });
 
 
 
@@ -689,21 +707,28 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function getBestMoves(fen, lichess, turn, depth = 0, movetime = "") {
+function getBestMoves(fen, lichess, turn) {
     if (!node_engine_id.includes(engineIndex)) {
         // local engines
         while (!engine) {
             sleep(100);
         }
         engine.postMessage(`position fen ${fen}`);
-        engine.postMessage(GM_getValue(dbValues.engineDepthQuery));
+
+        if (engineMode == DEPTH_MODE) {
+            engine.postMessage('go depth ' + current_depth);
+        } else {
+            engine.postMessage('go movetime ' + current_movetime);
+        }
+
+
     } else {
         // node server
         console.log("using node server");
 
 
 
-        getNodeBestMoves(fen, lichess, turn, depth, movetime);
+        getNodeBestMoves(fen, lichess, turn);
     }
 }
 
@@ -721,7 +746,7 @@ function observeNewMoves() {
 
             updateBestMove();
         } else {
-            updateBestMove(mutationArr);
+            updateBestMove(false, mutationArr);
         }
     });
 
@@ -738,13 +763,14 @@ function addGuiPages() {
         <div class="card">
             <div class="card-body" id="chessboard">
                 <div class="main-title-bar">
-                    <h5 class="card-title">Live Chessboard</h5>
+                    <h4 class="card-title">Live Chessboard:</h4>
                     <p id="best-move-progress"></p>
                 </div>
 
                 <div id="board" style="width: 447px"></div>
             </div>
             <div id="orientation" class="hidden"></div>
+            <div class="card-footer card"><input type="button" value="Get Best Move" id="bestmove-btn"></input></div>
             <div class="card-footer sideways-card">FEN :<small class="text-muted"><div id="fen"></div></small></div>
             <div class="card-footer sideways-card">ENEMY SCORE :<div id="enemy-score"></div></div>
             <div class="card-footer sideways-card">MY SCORE : <div id="my-score"></div></div>
@@ -781,21 +807,20 @@ function addGuiPages() {
     <div class="rendered-form" id="log-tab">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Userscript Log</h5>
+                <h4 class="card-title">Userscript Log:</h4>
                 <ul class="list-group" id="userscript-log-container"></ul>
             </div>
         </div>
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Engine Log</h5>
+                <h4 class="card-title">Engine Log</h4>
                 <ul class="list-group" id="engine-log-container"></ul>
             </div>
         </div>
     </div>
     `);
 
-    let depth = engineEloArr.findIndex(x => x.data == GM_getValue(dbValues.engineDepthQuery));
-    depth += 1;
+
     const subtletiness = GM_getValue(dbValues.subtletiness);
 
 
@@ -810,7 +835,7 @@ function addGuiPages() {
     <div class="rendered-form" id="settings-tab">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Engine</h5>
+                <h4 class="card-title">Engine:</h4>
                 <div class="form-group field-select-engine">
                     <select class="form-control" name="select-engine" id="select-engine">
                         <option value="option-lozza" id="select-engine-0">Lozza</option>
@@ -820,16 +845,14 @@ function addGuiPages() {
                     </select>
                 </div>
 
-            <div class="form-group field-select-engine">
-                <select class="form-control" name="select-engine-node" id="select-engine-node" style="display:${node_engine_id.includes(engineIndex) ? 'block' : 'none'};">
-                <option value="option-nodeserver-os-engine" id="select-engine-0">System Engine</option>
-                <option value="option-nodeserver-js" id="select-engine-1">Stockfish.js</option>
-                </select>
-            </div>
+
 				
-				<div id="engine-name-div" style="display:${(node_engine_id.includes(engineIndex) && nodeEngineIndex == 0) ? 'block' : 'none'};">
+				<div id="node-engine-div" style="display:${(node_engine_id.includes(engineIndex)) ? 'block' : 'none'};">
+                    <label for="engine-url">Engine URL:</label>
+                    <input type="text" id="engine-url" value="${node_engine_url}">
+                    <br>
 					<label for="engine-name">Engine Name:</label>
-					<input type="text" id="engine-name" value="${engine_name}">
+					<input type="text" id="engine-name" value="${node_engine_name}">
 				</div>
             </div>
         </div>
@@ -837,16 +860,29 @@ function addGuiPages() {
 
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Engine Strength</h5>
-                <input type="range" class="form-range" min="0" max="${engineEloArr.length - 1}" value="${depth}" id="depth-range">
-                <input type="number" class="form-range" min="1" max="${engineEloArr.length - 1}" value="${depth}" id="depth-range-number">
+                <h4 class="card-title">Engine Strength:</h4>
+
+			<h7 class="card-title">Engine Mode:</h7>
+            <div class="form-group field-select-engine-mode">
+			
+                <select class="form-control" name="select-engine-mode" id="select-engine-mode">
+                    <option value="option-depth" id="select-engine-mode-0">Depth</option>
+                    <option value="option-movetime" id="select-engine-mode-1">Move time</option>
+                </select>
+            </div>
+			
+            <h7 class="card-title">Engine Power:</h7>
+                <input type="range" class="form-range" min="${MIN_DEPTH}" max="${MAX_DEPTH}" step="1" value="${current_depth}" id="depth-range">
+                <input type="number" class="form-range" min="${MIN_DEPTH}" max="${MAX_DEPTH}" value="${current_depth}" id="depth-range-number">
+                <input type="range" class="form-range" min="${MIN_MOVETIME}" max="${MAX_MOVETIME}" step="50" value="${current_movetime}" id="movetime-range">
+                <input type="number" class="form-range" min="${MIN_MOVETIME}" max="${MAX_MOVETIME}" value="${current_movetime}" id="movetime-range-number">
 			</div>
-            <div class="card-footer sideways-card" id="depth-elo">Elo <small id="elo">${getEloDescription(getCurrentEngineElo(), depth)}</small></div>
+            <div class="card-footer sideways-card" id="elo">${getEloDescription()}</div>
         </div>
 
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Other</h5>
+                <h4 class="card-title">Other:</h4>
 
 				        <div>
                             <input type="checkbox" id="enable-user-log" ${enableUserLog ? 'checked' : ''}>
@@ -860,10 +896,6 @@ function addGuiPages() {
                         </div>
 
 
-				        <div>
-                            <input type="checkbox" id="show-opposite-moves" ${show_opposite_moves ? 'checked' : ''}>
-                            <label for="show-opposite-moves">Show Opponent best moves</label>
-                        </div>
 
 						<div id="reload-count-div" style="display:${node_engine_id.includes(engineIndex) ? 'none' : 'block'};">
                             <label for="reload-count">Reload Engine every</label>
@@ -875,10 +907,17 @@ function addGuiPages() {
 
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Visual</h5>
-                <div id="display-moves-on-site-warning" class="alert alert-danger ${displayMovesOnSite ? '' : 'hidden'}">
-                    <strong>Highly risky!</strong> DOM manipulation (moves displayed on site) is easily detectable! Use with caution.
+                <h4 class="card-title">Visual:</h4>
+                <div id="display-moves-on-site-warning" class="alert alert-danger">
+                    <strong>Warning !!</strong> You can get Permanently banned in 24 hours. Use with caution.
                 </div>
+
+            <div>
+                <input type="checkbox" id="show-opposite-moves" ${show_opposite_moves ? 'checked' : ''}>
+                <label for="show-opposite-moves">Show Opponent best moves</label>
+            </div>
+
+
                 <input type="checkbox" id="display-moves-on-site" ${displayMovesOnSite ? 'checked' : ''}>
                 <label for="display-moves-on-site">Display moves on site</label>
                 <!-- Display moves on site additional settings -->
@@ -918,7 +957,37 @@ function addGuiPages() {
 
 }
 
+function fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRangeElem, moveTimeRangeNumberElem, eloElem) {
+    if (engineMode == DEPTH_MODE) {
+        if (isNotCompatibleBrowser()) {
+            depthRangeElem.style.display = "none";
+            depthRangeNumberElem.style.display = "block";
+            moveTimeRangeElem.style.display = "none";
+            moveTimeRangeNumberElem.style.display = "none";
+        } else {
+            depthRangeElem.style.display = "block";
+            depthRangeNumberElem.style.display = "none";
+            moveTimeRangeElem.style.display = "none";
+            moveTimeRangeNumberElem.style.display = "none";
+        }
+    } else {
+        if (isNotCompatibleBrowser()) {
+            depthRangeElem.style.display = "none";
+            depthRangeNumberElem.style.display = "none";
+            moveTimeRangeElem.style.display = "none";
+            moveTimeRangeNumberElem.style.display = "block";
+        } else {
+            depthRangeElem.style.display = "none";
+            depthRangeNumberElem.style.display = "none";
+            moveTimeRangeElem.style.display = "block";
+            moveTimeRangeNumberElem.style.display = "none";
+        }
+    }
 
+
+    eloElem.innerText = getEloDescription();
+
+}
 
 function openGUI() {
     Interface.log(`Opening GUI!`);
@@ -927,53 +996,39 @@ function openGUI() {
     const show = elem => elem.classList.remove('hidden');
 
     Gui.open(() => {
-        const depthEloElem = Gui.document.querySelector('#depth-elo');
         const depthRangeElem = Gui.document.querySelector('#depth-range');
         const depthRangeNumberElem = Gui.document.querySelector('#depth-range-number');
-        const eloElem = Gui.document.querySelector('#elo');
+        const moveTimeRangeElem = Gui.document.querySelector('#movetime-range');
+        const moveTimeRangeNumberElem = Gui.document.querySelector('#movetime-range-number');
+        const engineModeElem = Gui.document.querySelector('#select-engine-mode');
         const engineElem = Gui.document.querySelector('#select-engine');
-        const nodeEngineElem = Gui.document.querySelector('#select-engine-node');
-        const engineNameDivElem = Gui.document.querySelector('#engine-name-div');
+        const engineNameDivElem = Gui.document.querySelector('#node-engine-div');
         const reloadEveryDivElem = Gui.document.querySelector('#reload-count-div');
-        const engineNameElem = Gui.document.querySelector('#engine-name');
-        engineElem.selectedIndex = engineIndex;
-        nodeEngineElem.selectedIndex = nodeEngineIndex;
-
-        if (isCompatibleBrowser()) {
-            depthRangeElem.style.display = "none";
-            depthRangeNumberElem.style.display = "block";
-        } else {
-            depthRangeElem.style.display = "block";
-            depthRangeNumberElem.style.display = "none";
-        }
-
-
+        const nodeEngineNameElem = Gui.document.querySelector('#engine-name');
+        const nodeEngineUrlElem = Gui.document.querySelector('#engine-url');
         const useLocalEngineElem = Gui.document.querySelector('#use-book-moves');
         const showOppositeMovesElem = Gui.document.querySelector('#show-opposite-moves');
-
-
-
-
         const displayMovesOnSiteElem = Gui.document.querySelector('#display-moves-on-site');
-        const displayMovesOnSiteWarningElem = Gui.document.querySelector('#display-moves-on-site-warning');
-
         const openGuiAutomaticallyElem = Gui.document.querySelector('#open-gui-automatically');
         const openGuiAutomaticallyAdditionalElem = Gui.document.querySelector('#display-moves-on-site-additional');
-
         const subtleModeElem = Gui.document.querySelector('#subtle-mode');
         const subtletinessRangeContainerElem = Gui.document.querySelector('#subtletiness-range-container');
         const subtletinessRange = Gui.document.querySelector('#subtletiness-range');
-
         const subtletinessInfo = Gui.document.querySelector('#subtletiness-info');
-
-
         const reloadEveryElem = Gui.document.querySelector('#reload-count');
-
         const enableUserLogElem = Gui.document.querySelector('#enable-user-log');
+        const eloElem = Gui.document.querySelector('#elo');
+        const getBestMoveElem = Gui.document.querySelector('#bestmove-btn');
 
 
+        fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRangeElem, moveTimeRangeNumberElem, eloElem);
 
-        if (isCompatibleBrowser()) {
+        engineElem.selectedIndex = engineIndex;
+        engineModeElem.selectedIndex = engineMode;
+
+
+        // compatibility fixed
+        if (isNotCompatibleBrowser()) {
             Gui.document.querySelector('#content').style.maxHeight = "500px";
             Gui.document.querySelector('#content').style.overflow = "scroll";
             Gui.document.querySelector('#chessboard').style.display = "none";
@@ -999,10 +1054,20 @@ function openGUI() {
             });
         }
 
+        getBestMoveElem.onclick = () => {
+            updateBestMove(true);
+        }
 
-        engineNameElem.onchange = () => {
-            engine_name = engineNameElem.value;
-            console.log(engine_name);
+        engineModeElem.onchange = () => {
+            engineMode = engineModeElem.selectedIndex;
+
+            fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRangeElem, moveTimeRangeNumberElem, eloElem);
+        }
+        nodeEngineNameElem.onchange = () => {
+            node_engine_name = nodeEngineNameElem.value;
+        }
+        nodeEngineUrlElem.onchange = () => {
+            node_engine_url = nodeEngineUrlElem.value;
         }
 
         enableUserLogElem.onchange = () => {
@@ -1026,18 +1091,13 @@ function openGUI() {
 
             if (node_engine_id.includes(engineIndex)) {
                 reloadEveryDivElem.style.display = "none";
-                nodeEngineElem.style.display = "block";
+                engineNameDivElem.style.display = "block";
 
-                if(nodeEngineIndex==0){
-                    engineNameDivElem.style.display="block";
-                }else{
-                    engineNameDivElem.style.display="none";
-                }
+
             }
             else {
                 reloadEveryDivElem.style.display = "block";
-                nodeEngineElem.style.display = "none";
-                engineNameDivElem.style.display="none";
+                engineNameDivElem.style.display = "none";
             }
 
 
@@ -1047,8 +1107,6 @@ function openGUI() {
             if (engineObjectURL) {
                 URL.revokeObjectURL(engineObjectURL);
                 engineObjectURL = null;
-                URL.revokeObjectURL(engineObjectURL2);
-                engineObjectURL2 = null;
             }
 
 
@@ -1065,21 +1123,21 @@ function openGUI() {
         }
 
 
-        nodeEngineElem.onchange = () => {
-            nodeEngineIndex = nodeEngineElem.selectedIndex;
 
-            if (nodeEngineIndex == 0) {
-                engineNameDivElem.style.display = "block";
-            } else {
-                engineNameDivElem.style.display = "none";
-            }
-        }
         depthRangeElem.onchange = () => {
-            changeDepth(depthRangeElem.value, eloElem);
+            changeEnginePower(depthRangeElem.value, eloElem);
         };
 
         depthRangeNumberElem.onchange = () => {
-            changeDepth(depthRangeNumberElem.value - 1, eloElem);
+            changeEnginePower(depthRangeNumberElem.value, eloElem);
+        };
+
+        moveTimeRangeElem.onchange = () => {
+            changeEnginePower(moveTimeRangeElem.value, eloElem);
+        };
+
+        moveTimeRangeNumberElem.onchange = () => {
+            changeEnginePower(moveTimeRangeNumberElem.value, eloElem);
         };
 
         showOppositeMovesElem.onchange = () => {
@@ -1108,7 +1166,6 @@ function openGUI() {
             if (isChecked) {
                 displayMovesOnSite = true;
 
-                show(displayMovesOnSiteWarningElem);
                 show(openGuiAutomaticallyAdditionalElem);
 
                 openGuiAutomaticallyElem.checked = GM_getValue(dbValues.openGuiAutomatically);
@@ -1116,7 +1173,6 @@ function openGUI() {
                 displayMovesOnSite = false;
                 GM_setValue(dbValues.openGuiAutomatically, true);
 
-                hide(displayMovesOnSiteWarningElem);
                 hide(openGuiAutomaticallyAdditionalElem);
             }
         };
@@ -1162,21 +1218,20 @@ function openGUI() {
     });
 }
 
-function changeDepth(val, eloElem) {
-    const depth = val;
-    const engineEloObj = engineEloArr[depth];
+function changeEnginePower(val, eloElem) {
+    if (engineMode == DEPTH_MODE) {
+        current_depth = val
+    } else {
+        current_movetime = val
+    }
 
-    const description = getEloDescription(engineEloObj.elo, Number(depth));
-    const engineQuery = engineEloObj.data;
 
-    GM_setValue(dbValues.engineDepthQuery, engineQuery);
-
-    eloElem.innerText = description;
+    eloElem.innerText = getEloDescription();
 }
 
 function reloadChessEngine(forced, callback) {
     // reload only if using local engines
-    if (node_engine_id.includes(engineIndex))
+    if (node_engine_id.includes(engineIndex) && forced == false)
         callback();
     else if (reload_count >= reload_every || forced == true) {
         reload_count = 1;
@@ -1184,8 +1239,7 @@ function reloadChessEngine(forced, callback) {
 
         if (engine)
             engine.terminate();
-        if (engine2)
-            engine2.terminate();
+
         loadChessEngine(callback);
     }
     else {
@@ -1194,42 +1248,7 @@ function reloadChessEngine(forced, callback) {
     }
 }
 
-function loadRandomChessengine(fen) {
-    if (!engineObjectURL2)
-        engineObjectURL2 = URL.createObjectURL(new Blob([GM_getResourceText('stockfish2.js')], { type: 'application/javascript' }));
 
-
-
-
-    if (engineObjectURL2) {
-        engine2 = new Worker(engineObjectURL2);
-        engine2.onmessage = e => {
-            if (e.data.includes('bestmove')) {
-
-                let move = e.data.split(' ')[1];
-                let move2 = e.data.split(' ')[3];
-
-                moveResult(fen, move.slice(0, 2), move.slice(2, 4), 0, true);
-                if ((move2 != undefined || move2 != "") && show_opposite_moves) {
-                    moveResult(fen, move2.slice(0, 2), move2.slice(2, 4), 0, false);
-                }
-            }
-
-
-        };
-
-        while (!engine2) {
-            sleep(1000);
-        }
-        engine2.postMessage('ucinewgame');
-
-        engine2.postMessage(`position fen ${fen}`);
-
-
-        engine2.postMessage(GM_getValue(dbValues.engineDepthQuery));
-
-    }
-}
 
 function loadChessEngine(callback) {
     if (!engineObjectURL) {
@@ -1261,9 +1280,16 @@ function loadChessEngine(callback) {
 
                 const infoObj = LozzaUtils.extractInfo(e.data);
 
-                if (infoObj?.depth) {
-                    Interface.updateBestMoveProgress(`Depth ${infoObj.depth}`);
+                if (engineMode == DEPTH_MODE) {
+
+                    Interface.updateBestMoveProgress(`Depth: ${infoObj.depth}`);
+
+                } else {
+
+                    Interface.updateBestMoveProgress(`Move time: ${infoObj.time} ms`);
+
                 }
+
             }
             Interface.engineLog(e.data);
         };
@@ -1283,7 +1309,6 @@ function initializeDatabase() {
         }
     };
 
-    initValue(dbValues.engineDepthQuery, 'go depth 5');
     initValue(dbValues.subtleMode, false);
     initValue(dbValues.openGuiAutomatically, true);
     initValue(dbValues.subtletiness, 25);
