@@ -40,7 +40,6 @@ function getLichessBestMove(use_lichess_api, fen, turn, callback) {
 
                 callback({
                     move: body.pvs[0].moves.split(' ')[0],
-                    opposite_move: false,
                     turn: turn,
                     score: body.pvs[0].cp,
                     depth: body.depth,
@@ -60,7 +59,7 @@ app.get("/getBestMove", (req, res) => {
     var fen = req.query.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     var depth = req.query.depth || 10
     var movetime = req.query.movetime || 500
-    var use_lichess_api = req.query.lichess || false
+
     var turn = req.query.turn || "w"
     //var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
     var engine_name = req.query.engine_name || "stockfish-15.exe"
@@ -73,44 +72,24 @@ app.get("/getBestMove", (req, res) => {
     }
 
     counter++
-    console.log(counter + ")")
-    getLichessBestMove(use_lichess_api, fen, turn, (data) => {
-        if (data != false) {
-            return res.send(data)
-        }
-
-        // using stockfish engine
+    console.log(counter + ") turn updated to: "+turn)
 
 
-        /*
-                if (engine_type == VARS.ENGINE_TYPES[0]) {
-                    // use .js engines
-                    
-                    chessEngine2.getBestMove(fen, turn, depth, movetime, res)
-                }
-                */
-        if (true) {
-            // use local system engines
-
-            chessEngine.start(engine_mode, turn, depth, movetime, engine_name, fen).then((result) => {
-
-
-                res.send({
-                    fen: result.fen,
-                    move: result.bestMove,
-                    opposite_move: false,
-                    turn: result.turn,
-                    depth: result.engineDepth,
-                    movetime: movetime,
-                    score: depth,
-                    provider: engine_name
-                })
-
-            })
-
-        }
+    chessEngine.start(engine_mode, turn, depth, movetime, engine_name, fen).then((result) => {
+        res.send({
+            fen: result.fen,
+            move: result.bestMove,
+            turn: result.turn,
+            depth: result.engineDepth,
+            movetime: movetime,
+            score: depth,
+            provider: engine_name
+        })
 
     })
+
+
+
 })
 
 
