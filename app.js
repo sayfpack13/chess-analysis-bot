@@ -80,7 +80,7 @@ app.get("/getBestMove", (req, res) => {
             fen: result.fen,
             move: result.bestMove,
             turn: result.turn,
-            depth: result.engineDepth,
+            depth: depth,
             movetime: movetime,
             score: depth,
             provider: engine_name
