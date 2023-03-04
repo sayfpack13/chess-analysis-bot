@@ -30,7 +30,7 @@ class UserGui {
 	iFrame = undefined;
 	settings = {
 		"window" : {
-			"title" : "C.A.S",
+			"title" : "Smart Chess Bot",
 			"name" : "userscript-gui",
 			"external" : false,
 			"centered" : false,
