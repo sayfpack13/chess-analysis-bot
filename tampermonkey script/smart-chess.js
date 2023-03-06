@@ -3,7 +3,7 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     5.6
+// @version     5.8
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.life/
 // @match       https://www.chess.com/*
@@ -51,30 +51,38 @@ let show_opposite_moves = false;                            // show opponent bes
 let use_book_moves = false;                                 // use lichess api to get book moves
 let node_engine_url = "http://localhost:5000";              // node server api url
 let node_engine_name = "stockfish-15.exe"                   // default engine name (node server engine only)
+let current_depth = Math.round(MAX_DEPTH / 2);              // current engine depth
+let current_movetime = Math.round(MAX_MOVETIME / 3);        // current engine move time
 
 
 
 
-let current_depth = Math.round(MAX_DEPTH / 2);
-let current_movetime = Math.round(MAX_MOVETIME / 3);
-let node_engine_id = 3;
+const dbValues = {
+    engineMode: 'engineMode',
+    engineIndex: 'engineIndex',
+    reload_every: 'reload_every',
+    enableUserLog: 'enableUserLog',
+    displayMovesOnSite: 'displayMovesOnSite',
+    show_opposite_moves: "show_opposite_moves",
+    use_book_moves: "use_book_moves",
+    node_engine_url: "node_engine_url",
+    node_engine_name: "node_engine_name",
+    current_depth: "current_depth",
+    current_movetime: "current_movetime"
+};
+
 
 let Gui;
 let closedGui = false;
 let reload_count = 1;
-
-
-
-
-
-
+let node_engine_id = 3;
 let Interface = null;
 let LozzaUtils = null;
 
 let initialized = false;
 let firstMoveMade = false;
 
-
+let forcedBestMove = false;
 let engine = null;
 let engineObjectURL = null;
 let lastEngine = engineIndex;
@@ -97,6 +105,9 @@ let myScore = 0;
 
 
 function moveResult(from, to, power, clear = true) {
+    if (!isPlayerTurn && !show_opposite_moves) {
+        return;
+    }
 
     if (from.length < 2 || to.length < 2) {
         return;
@@ -107,13 +118,17 @@ function moveResult(from, to, power, clear = true) {
     }
 
 
+    if (forcedBestMove == false) {
+        if (isPlayerTurn) // my turn
+            myScore = myScore + Number(power);
+        else
+            enemyScore = enemyScore + Number(power);
 
-    if (isPlayerTurn) // my turn
-        myScore = myScore + Number(power);
-    else
-        enemyScore = enemyScore + Number(power);
+        Interface.boardUtils.updateBoardPower(myScore, enemyScore);
+    } else {
+        forcedBestMove = false;
+    }
 
-    Interface.boardUtils.updateBoardPower(myScore, enemyScore);
 
 
 
@@ -125,6 +140,7 @@ function moveResult(from, to, power, clear = true) {
 
     Interface.boardUtils.markMove(from, to);
     Interface.stopBestMoveProcessingAnimation();
+
 
 
 }
@@ -145,10 +161,9 @@ function getBookMoves(fen) {
             } else {
                 let data = JSON.parse(response.response);
                 let nextMove = data.pvs[0].moves.split(' ')[0];
-                let score = current_depth;
 
-            
-                moveResult(nextMove.slice(0, 2), nextMove.slice(2, 4), score, true);
+
+                moveResult(nextMove.slice(0, 2), nextMove.slice(2, 4), current_depth, true);
             }
 
 
@@ -188,7 +203,7 @@ function getNodeBestMoves(fen) {
                 Interface.updateBestMoveProgress(`Move time: ${movetime} ms`);
             }
 
-            
+
             moveResult(move.slice(0, 2), move.slice(2, 4), power, true);
 
 
@@ -209,6 +224,8 @@ function getElo() {
         elo = MAX_ELO / MAX_MOVETIME;
         elo *= current_movetime;
     }
+    elo=Math.round(elo);
+
     return elo;
 }
 
@@ -624,8 +641,9 @@ function removeSiteMoveMarkings() {
 
 function updateBestMove(mutationArr) {
 
-    let FenUtil = new FenUtils();
-    let currentFen = getCurrentFen();
+    const FenUtil = new FenUtils();
+    let currentFen = FenUtil.getFen();
+
 
 
     if (currentFen != lastFen) {
@@ -638,11 +656,20 @@ function updateBestMove(mutationArr) {
             if (attributeMutationArr?.length) {
                 turn = FenUtil.getPieceOppositeColor(FenUtil.getFenCodeFromPieceElem(attributeMutationArr[0].target));
                 Interface.log(`Turn updated to ${turn}!`);
-                if(turn!=playerColor){
-                    Gui.document.querySelector('#bestmove-btn').disabled=true;
-                }else{
-                    Gui.document.querySelector('#bestmove-btn').disabled=false;
+
+
+                if (currentFen === ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")) {
+                    enemyScore = 0;
+                    myScore = 0;
+                    Interface.boardUtils.updateBoardPower(myScore, enemyScore);
                 }
+                /*
+                if (turn != playerColor) {
+                    Gui.document.querySelector('#bestmove-btn').disabled = true;
+                } else {
+                    Gui.document.querySelector('#bestmove-btn').disabled = false;
+                }
+                */
             }
         }
         updateBoard();
@@ -668,6 +695,8 @@ function sendBestMoveRequest() {
         Interface.log('Sending best move request to the engine!');
         let currentFen = getCurrentFen();
 
+
+
         if (use_book_moves) {
             getBookMoves(currentFen);
         } else {
@@ -677,14 +706,14 @@ function sendBestMoveRequest() {
 }
 
 function getCurrentFen() {
-    let FenUtil = new FenUtils();
+    const FenUtil = new FenUtils();
 
     let currentFen = FenUtil.getFen();
     return currentFen;
 }
 
 
-function clearBoard(){
+function clearBoard() {
     Interface.stopBestMoveProcessingAnimation();
 
     Interface.boardUtils.removeBestMarkings();
@@ -950,8 +979,7 @@ function fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRan
 function openGUI() {
     Interface.log(`Opening GUI!`);
 
-    const hide = elem => elem.classList.add('hidden');
-    const show = elem => elem.classList.remove('hidden');
+
 
     Gui.open(() => {
         const depthRangeElem = Gui.document.querySelector('#depth-range');
@@ -967,7 +995,6 @@ function openGUI() {
         const useLocalEngineElem = Gui.document.querySelector('#use-book-moves');
         const showOppositeMovesElem = Gui.document.querySelector('#show-opposite-moves');
         const displayMovesOnSiteElem = Gui.document.querySelector('#display-moves-on-site');
-        const openGuiAutomaticallyAdditionalElem = Gui.document.querySelector('#display-moves-on-site-additional');
         const reloadEveryElem = Gui.document.querySelector('#reload-count');
         const enableUserLogElem = Gui.document.querySelector('#enable-user-log');
         const eloElem = Gui.document.querySelector('#elo');
@@ -1008,42 +1035,52 @@ function openGUI() {
         }
 
         getBestMoveElem.onclick = () => {
-            if(isPlayerTurn){
+            if (isPlayerTurn) {
+                forcedBestMove = true;
                 clearBoard();
                 sendBestMoveRequest();
             }
-            
+
         }
 
         engineModeElem.onchange = () => {
             engineMode = engineModeElem.selectedIndex;
+            GM_setValue(dbValues.engineMode, engineMode);
 
             fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRangeElem, moveTimeRangeNumberElem, eloElem);
         }
         nodeEngineNameElem.onchange = () => {
             node_engine_name = nodeEngineNameElem.value;
+            GM_setValue(dbValues.node_engine_name, node_engine_name);
         }
         nodeEngineUrlElem.onchange = () => {
             node_engine_url = nodeEngineUrlElem.value;
+            GM_setValue(dbValues.node_engine_url, node_engine_url);
         }
 
         enableUserLogElem.onchange = () => {
             const isChecked = enableUserLogElem.checked;
 
-            if (isChecked)
+            if (isChecked) {
                 enableUserLog = true;
-            else
+            }
+            else {
                 enableUserLog = false;
+            }
+
+
+            GM_setValue(dbValues.enableUserLog, enableUserLog);
         }
 
         reloadEveryElem.onchange = () => {
             reload_every = reloadEveryElem.value;
+            GM_setValue(dbValues.reload_every, reload_every);
         }
 
         engineElem.onchange = () => {
             lastEngine = engineIndex;
             engineIndex = engineElem.selectedIndex;
-
+            GM_setValue(dbValues.engineIndex, engineIndex);
 
 
             if (node_engine_id == engineIndex) {
@@ -1105,6 +1142,8 @@ function openGUI() {
             } else {
                 show_opposite_moves = false;
             }
+
+            GM_setValue(dbValues.show_opposite_moves, show_opposite_moves);
         }
 
         useLocalEngineElem.onchange = () => {
@@ -1115,6 +1154,9 @@ function openGUI() {
             } else {
                 use_book_moves = false;
             }
+
+   
+            GM_setValue(dbValues.use_book_moves, use_book_moves);
         }
 
         displayMovesOnSiteElem.onchange = () => {
@@ -1122,14 +1164,10 @@ function openGUI() {
 
             if (isChecked) {
                 displayMovesOnSite = true;
-
-                show(openGuiAutomaticallyAdditionalElem);
-
             } else {
                 displayMovesOnSite = false;
-
-                hide(openGuiAutomaticallyAdditionalElem);
             }
+            GM_setValue(dbValues.displayMovesOnSite, displayMovesOnSite);            
         };
 
 
@@ -1153,15 +1191,17 @@ function openGUI() {
 
         observeNewMoves();
 
-        Interface.log('Initialized!');
+        Interface.log('Initialized GUI!');
     });
 }
 
 function changeEnginePower(val, eloElem) {
     if (engineMode == DEPTH_MODE) {
         current_depth = val
+        GM_setValue(dbValues.current_depth,current_depth);
     } else {
         current_movetime = val
+        GM_setValue(dbValues.current_movetime,current_movetime);
     }
 
 
@@ -1210,10 +1250,10 @@ function loadChessEngine(callback) {
                 let opponent_move = e.data.split(' ')[3];
 
 
-               
-                    moveResult(move.slice(0, 2), move.slice(2, 4), 0, true);
-                
-          
+
+                moveResult(move.slice(0, 2), move.slice(2, 4), current_depth, true);
+
+
 
             }
 
@@ -1266,6 +1306,7 @@ async function initialize() {
     const boardOrientation = Interface.getBoardOrientation();
     turn = boardOrientation;
 
+    initializeDatabase();
 
 
     loadChessEngine(() => {
@@ -1277,6 +1318,7 @@ async function initialize() {
 
     addGuiPages();
     openGUI();
+
 
 }
 
@@ -1300,3 +1342,38 @@ const waitForChessBoard = setInterval(() => {
         }
     }
 }, 2000);
+
+
+function initializeDatabase() {
+    const initValue = (name, value) => {
+        if (GM_getValue(name) == undefined) {
+            GM_setValue(name, value);
+        }
+    };
+
+    initValue(dbValues.engineMode, 0);
+    initValue(dbValues.engineIndex, 0);
+    initValue(dbValues.reload_every, 10);
+    initValue(dbValues.enableUserLog, true);
+    initValue(dbValues.displayMovesOnSite, true);
+    initValue(dbValues.show_opposite_moves, false);
+    initValue(dbValues.use_book_moves, false);
+    initValue(dbValues.node_engine_url, "http://localhost:5000");
+    initValue(dbValues.node_engine_name, "stockfish-15.exe");
+    initValue(dbValues.current_depth, Math.round(MAX_DEPTH / 2));
+    initValue(dbValues.current_movetime, Math.round(MAX_MOVETIME / 3));
+
+
+    engineMode = GM_getValue(dbValues.engineMode);
+    engineIndex = GM_getValue(dbValues.engineIndex);
+    reload_every = GM_getValue(dbValues.reload_every);
+    enableUserLog = GM_getValue(dbValues.enableUserLog);
+    displayMovesOnSite = GM_getValue(dbValues.displayMovesOnSite);
+    show_opposite_moves = GM_getValue(dbValues.show_opposite_moves);
+    use_book_moves = GM_getValue(dbValues.use_book_moves);
+    node_engine_url = GM_getValue(dbValues.node_engine_url);
+    node_engine_name = GM_getValue(dbValues.node_engine_name);
+    current_depth = GM_getValue(dbValues.current_depth);
+    current_movetime = GM_getValue(dbValues.current_movetime);
+
+}
