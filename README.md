@@ -25,6 +25,7 @@ Works well with almost every browser including Chrome, Firefox, Edge, and Opera.
 2) TamperMonkey Script: https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
 3) Allow pop-ups !!
 4) if you want to use node server to run chess engine on your system:
+- Tutorial: https://www.youtube.com/watch?v=WaqI4l_hmIE&ab_channel=Sayfpack
 - Download node.js server: https://github.com/sayfpack13/chess-analysis-bot
 - download any chess engine exp stockfish: https://stockfishchess.org/download/
 - put the engine file in node server path: /utils/engine
