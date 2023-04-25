@@ -1,0 +1,4 @@
+node_modules
+tampermonkey script
+utils/engine/*
+*/stockfish*
