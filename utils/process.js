@@ -36,7 +36,8 @@ const executeEngine = (command,engineCmd = 'go depth 10',engine) => {
     })
 
     engine.stdout.on('error', (err) => {
-      reject(err)
+		console.log(err)
+		//reject(err)
     })
 
     engine.stdin.write(`${command}\n`)

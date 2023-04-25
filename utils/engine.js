@@ -35,32 +35,26 @@ class ChessEngine {
     this.fen.push(fen)
 
 
-
+	var engineResult
 
     if (this.engine_mode == VARS.DEPTH_MODE) {
       console.log("using depth mode")
-      const engineResult = await executeEngine(
+	  
+      engineResult = await executeEngine(
         `position fen ${this.getLastFen()}\n`,
         `go depth ${this.depth}`,
         this.engine
       )
-      return {
-        fen: this.getLastFen(),
-        turn: this.turn,
-        setDepth: this.depth,
-        engineDepth: engineResult.depth,
-        selDepth: engineResult.seldepth,
-        bestMove: engineResult.bestmove,
-        possibleHumanMove: engineResult.possible_human_move,
-      }
     } else {
       console.log("using movetime mode")
 
-      const engineResult = await executeEngine(
+      engineResult = await executeEngine(
         `position fen ${this.getLastFen()}\n`,
         `go movetime ${this.movetime}`,
         this.engine
       )
+
+    }
       return {
         fen: this.getLastFen(),
         turn: this.turn,
@@ -70,8 +64,6 @@ class ChessEngine {
         bestMove: engineResult.bestmove,
         possibleHumanMove: engineResult.possible_human_move,
       }
-    }
-
   }
 }
 
