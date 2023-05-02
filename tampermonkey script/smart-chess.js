@@ -3,7 +3,7 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     7.5
+// @version     8.2
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.life/
 // @match       https://www.chess.com/*
@@ -15,7 +15,7 @@
 // @grant       GM_registerMenuCommand
 // @description 	Our chess analysis system is designed to give players the edge they need to win. By using advanced algorithms and cutting-edge technology, our system can analyze any chess position and suggest the best possible move, helping players to make smarter and more informed decisions on the board.
 // @description:fr 	Notre système d'analyse d'échecs est conçu pour donner aux joueurs l'avantage dont ils ont besoin pour gagner. En utilisant des algorithmes avancés et des technologies de pointe, notre système peut analyser n'importe quelle position d'échecs et suggérer le meilleur coup possible, aidant les joueurs à prendre des décisions plus intelligentes et plus éclairées sur l'échiquier.
-// @require     https://greasyfork.org/scripts/460400-usergui-js/code/userguijs.js?version=1152084
+// @require     https://greasyfork.org/scripts/460400-usergui-js/code/userguijs.js?version=1157130
 // @resource    jquery.js       	https://cdn.jsdelivr.net/npm/jquery@3.6.3/dist/jquery.min.js
 // @resource    chessboard.js   	https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script/content/chessboard.js
 // @resource    chessboard.css  	https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script/content/chessboard.css
@@ -62,7 +62,7 @@ var node_engine_url = "http://localhost:5000";              // node server api u
 var node_engine_name = "stockfish-15.exe"                   // default engine name (node server engine only)
 var current_depth = Math.round(MAX_DEPTH / 2);              // current engine depth
 var current_movetime = Math.round(MAX_MOVETIME / 3);        // current engine move time
-
+var max_best_moves = 1;
 
 var lastBestMoveID = 0;
 
@@ -82,7 +82,8 @@ const dbValues = {
     node_engine_url: "node_engine_url",
     node_engine_name: "node_engine_name",
     current_depth: "current_depth",
-    current_movetime: "current_movetime"
+    current_movetime: "current_movetime",
+    max_best_moves: "max_best_moves"
 };
 
 
@@ -95,6 +96,8 @@ var LozzaUtils = null;
 var CURRENT_SITE = null;
 var boardElem = null;
 var firstPieceElem = null;
+const MAX_LOGS = 50;
+
 
 var initialized = false;
 var firstMoveMade = false;
@@ -122,10 +125,31 @@ var userscriptLogNum = 1;
 var enemyScore = 0;
 var myScore = 0;
 
+var possible_moves = [];
+
+
+// style
+const best_move_color = [0, 0, 250, 0.5];
+const opposite_best_move_color = [250, 0, 0, 0.5];
+const possible_moves_colors = [
+    //[r,g,b,a]
+    [200, 180, 0, 0.9],
+    [150, 180, 0, 0.9],
+    [100, 180, 0, 0.9],
+    [50, 180, 0, 0.9]
+]
+const opposite_possible_moves_colors = [
+    //[r,g,b,a]
+    [250, 200, 200, 0.9],
+    [250, 150, 150, 0.9],
+    [250, 100, 100, 0.9],
+    [250, 50, 50, 0.9]
+]
+const defaultFromSquareStyle = 'border: 4px solid rgb(0 0 0 / 50%);';
+const defaultToSquareStyle = 'border: 4px dashed rgb(0 0 0 / 50%);';
+
 
 function moveResult(from, to, power, clear = true) {
-
-
     if (from.length < 2 || to.length < 2) {
         return;
     }
@@ -144,13 +168,22 @@ function moveResult(from, to, power, clear = true) {
         Interface.boardUtils.updateBoardPower(myScore, enemyScore);
     } else {
         forcedBestMove = false;
+        Gui.document.querySelector('#bestmove-btn').disabled = false;
     }
 
 
 
+    // remove duplicated best moves
+    possible_moves = removeDuplicates(possible_moves).slice(0, max_best_moves - 1);
+
+    for (let a = 0; a < possible_moves.length; a++) {
+        Interface.boardUtils.markMove(possible_moves[a].slice(0, 2), possible_moves[a].slice(2, 4), (isPlayerTurn ? possible_moves_colors[a] : opposite_possible_moves_colors[a]));
+    }
+
+    Interface.boardUtils.markMove(from, to, (isPlayerTurn ? best_move_color : opposite_best_move_color));
 
 
-    Interface.boardUtils.markMove(from, to);
+
     Interface.stopBestMoveProcessingAnimation();
 }
 
@@ -165,7 +198,7 @@ function getBookMoves(request) {
             "Content-Type": "application/json"
         },
         onload: function (response) {
-            if (response.response.includes("error")) {
+            if (response.response.includes("error") || !response.ok) {
                 if (lastBestMoveID != request.id) {
                     return;
                 }
@@ -196,11 +229,9 @@ function getBookMoves(request) {
 }
 
 function getNodeBestMoves(request) {
-
-
     GM_xmlhttpRequest({
         method: "GET",
-        url: node_engine_url + "/getBestMove?fen=" + request.fen + "&engine_mode=" + engineMode + "&depth=" + current_depth + "&movetime=" + current_movetime + "&turn=" + turn + "&engine_name=" + node_engine_name,
+        url: node_engine_url + "/getBestMove?fen=" + request.fen + "&engine_mode=" + engineMode + "&depth=" + current_depth + "&movetime=" + current_movetime + "&turn=" + last_turn || turn + "&engine_name=" + node_engine_name,
         headers: {
             "Content-Type": "application/json"
         },
@@ -274,18 +305,14 @@ function getRank() {
 
 
 
-
-
-
-function getEloDescription() {
-    let desc = `Elo: ${getElo()}, Rank: ${getRank()}, `;
-    if (engineMode == DEPTH_MODE) {
-        desc += `Depth: ${current_depth}`;
-    } else {
-        desc += `Move Time: ${current_movetime} ms`;
-    }
-    return desc;
+function setEloDescription(eloElem) {
+    eloElem.querySelector("#value").innerText = `Elo: ${getElo()}`;
+    eloElem.querySelector("#rank").innerText = `Rank: ${getRank()}`;
+    eloElem.querySelector("#power").innerText = engineMode == DEPTH_MODE ? `Depth: ${current_depth}` : `Move Time: ${current_movetime}`;
 }
+
+
+
 
 function isNotCompatibleBrowser() {
     return navigator.userAgent.toLowerCase().includes("firefox")
@@ -313,20 +340,6 @@ Gui.settings.gui.external.style += GM_getResourceText('chessboard.css');
 Gui.settings.gui.external.style += `
 div[class^='board'] {
     background-color: black;
-}
-.best-move-from {
-    background-color: #31ff7f;
-    transform: scale(0.85);
-}
-.best-move-to {
-    background-color: #31ff7f;
-}
-.negative-best-move-from {
-    background-color: #fd0000;
-    transform: scale(0.85);
-}
-.negative-best-move-to {
-    background-color: #fd0000;
 }
 body {
     display: block;
@@ -401,12 +414,12 @@ function FenUtils() {
     this.getFenCodeFromPieceElem = pieceElem => {
         if (CURRENT_SITE == CHESS_COM) {
             return this.pieceCodeToFen([...pieceElem.classList].find(x => x.match(/^(b|w)[prnbqk]{1}$/)));
-        } else if (CURRENT_SITE === LICHESS_ORG) {
+        } else if (CURRENT_SITE == LICHESS_ORG) {
             let [pieceColor, pieceName] = pieceElem.cgPiece.split(' ');
 
             // fix pieceName
-            if(pieceName==="knight"){
-                pieceName="n"
+            if (pieceName == "knight") {
+                pieceName = "n"
             }
 
             let pieceText = pieceColor[0] + pieceName[0];
@@ -474,7 +487,7 @@ function FenUtils() {
 
         if (CURRENT_SITE == CHESS_COM) {
             pieceElems = [...chessBoardElem.querySelectorAll('.piece')];
-        } else if (CURRENT_SITE === LICHESS_ORG) {
+        } else if (CURRENT_SITE == LICHESS_ORG) {
             pieceElems = [...chessBoardElem.querySelectorAll('piece')];
         }
 
@@ -488,7 +501,7 @@ function FenUtils() {
                 let [xPos, yPos] = pieceElem.classList.toString().match(/square-(\d)(\d)/).slice(1);
 
                 this.board[8 - yPos][xPos - 1] = pieceFenCode;
-            } else if (CURRENT_SITE === LICHESS_ORG) {
+            } else if (CURRENT_SITE == LICHESS_ORG) {
                 let [xPos, yPos] = pieceElem.cgKey.split('');
 
                 this.board[8 - yPos][alphabetPosition(xPos)] = pieceFenCode;
@@ -507,7 +520,7 @@ function FenUtils() {
         let basicFen = this.getBasicFen();
         let rights = this.getRights();
 
-        return `${basicFen} ${turn} ${rights} - 0 1`;
+        return `${basicFen} ${last_turn || turn} ${rights} - 0 1`;
     }
 }
 
@@ -520,40 +533,40 @@ function InterfaceUtils() {
 
             return Gui.document.querySelector(`.square-${squareCode}`);
         },
-        markMove: (fromSquare, toSquare) => {
+        markMove: (fromSquare, toSquare, rgba_color) => {
             if (!Gui?.document) return;
 
             let fromElem = toElem = null;
 
 
-            if (CURRENT_SITE === CHESS_COM) {
+            if (CURRENT_SITE == CHESS_COM) {
                 [fromElem, toElem] = [this.boardUtils.findSquareElem(fromSquare), this.boardUtils.findSquareElem(toSquare)];
 
 
+                if (!isNotCompatibleBrowser()) {
+                    fromElem.style.scale = 0.8;
+                    toElem.style.scale = 0.9;
+                    fromElem.style.backgroundColor = `rgb(${rgba_color[0]},${rgba_color[1]},${rgba_color[2]})`;
+                    toElem.style.backgroundColor = `rgb(${rgba_color[0]},${rgba_color[1]},${rgba_color[2]})`;
 
 
-                if (isPlayerTurn) {
-                    fromElem.classList.add('best-move-from');
-                    toElem.classList.add('best-move-to');
-                } else {
-                    fromElem.classList.add('negative-best-move-from');
-                    toElem.classList.add('negative-best-move-to');
+
+                    activeGuiMoveHighlights.push(fromElem);
+                    activeGuiMoveHighlights.push(toElem);
                 }
-
-                activeGuiMoveHighlights.push(fromElem);
-                activeGuiMoveHighlights.push(toElem);
 
             }
 
             if (displayMovesOnSite || (!isPlayerTurn && show_opposite_moves)) {
-                markMoveToSite(fromSquare, toSquare);
+                markMoveToSite(fromSquare, toSquare, rgba_color);
             }
         },
         removeBestMarkings: () => {
             if (!Gui?.document) return;
 
             activeGuiMoveHighlights.forEach(elem => {
-                elem.classList.remove('best-move-from', 'best-move-to', 'negative-best-move-from', 'negative-best-move-to');
+                elem.style.scale = 1.0;
+                elem.style.backgroundColor = "";
             });
 
             activeGuiMoveHighlights = [];
@@ -561,7 +574,7 @@ function InterfaceUtils() {
         updateBoardFen: fen => {
             if (!Gui?.document) return;
 
-            Gui.document.querySelector('#fen').textContent = fen;
+            Gui.document.querySelector('#fen').textContent = fen.slice(0, fen.lastIndexOf('-') - 1);
         },
         updateBoardPower: (myScore, enemyScore) => {
             if (!Gui?.document) return;
@@ -591,7 +604,13 @@ function InterfaceUtils() {
 
         logElem.innerText = `#${engineLogNum++} ${str}`;
 
+        if (engineLogNum > MAX_LOGS) {
+            Gui.document.querySelector('#engine-log-container').lastChild.remove();
+        }
+
         Gui.document.querySelector('#engine-log-container').prepend(logElem);
+
+
     }
 
     this.log = str => {
@@ -608,21 +627,26 @@ function InterfaceUtils() {
         if (container) {
             logElem.innerText = `#${userscriptLogNum++} ${str}`;
 
+            if (userscriptLogNum > MAX_LOGS) {
+                container.lastChild.remove();
+            }
+
+
             container.prepend(logElem);
         }
     }
 
     this.getBoardOrientation = () => {
-        if(CURRENT_SITE===CHESS_COM){
+        if (CURRENT_SITE == CHESS_COM) {
             return document.querySelector('.board.flipped') ? 'b' : 'w';
-        }else if(CURRENT_SITE===LICHESS_ORG){
-            return document.querySelector(".orientation-white")!==null ? 'w' : 'b'
+        } else if (CURRENT_SITE == LICHESS_ORG) {
+            return document.querySelector(".orientation-white") !== null ? 'w' : 'b'
         }
-        
+
     }
 
     this.updateBestMoveProgress = text => {
-        if (!Gui?.document) return;
+        if (!Gui?.document || isNotCompatibleBrowser() || CURRENT_SITE === LICHESS_ORG) return;
 
         const progressBarElem = Gui.document.querySelector('#best-move-progress');
 
@@ -633,7 +657,7 @@ function InterfaceUtils() {
     }
 
     this.stopBestMoveProcessingAnimation = () => {
-        if (!Gui?.document) return;
+        if (!Gui?.document || isNotCompatibleBrowser() || CURRENT_SITE === LICHESS_ORG) return;
 
         const progressBarElem = Gui.document.querySelector('#best-move-progress');
 
@@ -641,7 +665,7 @@ function InterfaceUtils() {
     }
 
     this.hideBestMoveProgress = () => {
-        if (!Gui?.document) return;
+        if (!Gui?.document || isNotCompatibleBrowser() || CURRENT_SITE === LICHESS_ORG) return;
 
         const progressBarElem = Gui.document.querySelector('#best-move-progress');
 
@@ -662,13 +686,15 @@ function LozzaUtility() {
     }
 
     this.extractInfo = str => {
-        const keys = ['time', 'nps', 'depth'];
+
+        const keys = ['time', 'nps', 'depth', 'pv'];
 
         return keys.reduce((acc, key) => {
-            const match = str.match(`${key} (\\d+)`);
+            let match = str.match(`${key} (\\d+)`);
+
 
             if (match) {
-                acc[key] = Number(match[1]);
+                acc[key] = (match[1]);
             }
 
             return acc;
@@ -682,12 +708,12 @@ function fenSquareToChessComSquare(fenSquareCode) {
     return `square-${['abcdefgh'.indexOf(x) + 1]}${y}`;
 }
 
-function markMoveToSite(fromSquare, toSquare) {
-    const highlight = (fenSquareCode, style) => {
+function markMoveToSite(fromSquare, toSquare, rgba_color) {
+    const highlight = (fenSquareCode, style, rgba_color) => {
 
         let squareClass = highlightElem = existingHighLight = parentElem = null
 
-        if (CURRENT_SITE === CHESS_COM) {
+        if (CURRENT_SITE == CHESS_COM) {
             squareClass = fenSquareToChessComSquare(fenSquareCode);
 
             highlightElem = document.createElement('div');
@@ -696,6 +722,8 @@ function markMoveToSite(fromSquare, toSquare) {
             highlightElem.classList.add(squareClass);
             highlightElem.dataset.testElement = 'highlight';
             highlightElem.style = style;
+            highlightElem.style.backgroundColor = `rgba(${rgba_color[0]},${rgba_color[1]},${rgba_color[2]},${rgba_color[3]})`;
+
 
             activeSiteMoveHighlights.push(highlightElem);
 
@@ -712,24 +740,24 @@ function markMoveToSite(fromSquare, toSquare) {
 
             parentElem = chessBoardElem;
 
-        } else if(CURRENT_SITE===LICHESS_ORG) {
-            let x_pos,y_pos
+        } else if (CURRENT_SITE == LICHESS_ORG) {
+            let x_pos, y_pos
             // check if flipped white: false  / black: true
-            let flipped=document.querySelector(".orientation-white")!==null ? false : true
+            let flipped = document.querySelector(".orientation-white") !== null ? false : true
 
-            
+
             let default_square_width = parseInt(chessBoardElem.querySelector("cg-container").style.width) / 8;
             let default_square_height = parseInt(chessBoardElem.querySelector("cg-container").style.height) / 8;
 
 
-            if(!flipped){
+            if (!flipped) {
                 // player has white side
                 x_pos = alphabetPosition(fenSquareCode[0]) * default_square_width;
                 y_pos = (8 - Number(fenSquareCode[1])) * default_square_height;
-            }else{
+            } else {
                 // black side
-                x_pos = (7-alphabetPosition(fenSquareCode[0])) * default_square_width;
-                y_pos = (Number(fenSquareCode[1])-1) * default_square_height;   
+                x_pos = (7 - alphabetPosition(fenSquareCode[0])) * default_square_width;
+                y_pos = (Number(fenSquareCode[1]) - 1) * default_square_height;
             }
 
 
@@ -738,6 +766,7 @@ function markMoveToSite(fromSquare, toSquare) {
             highlightElem.classList.add('highlight');
             highlightElem.dataset.testElement = 'highlight';
             highlightElem.style = style;
+            highlightElem.style.backgroundColor = `rgba(${rgba_color[0]},${rgba_color[1]},${rgba_color[2]},${rgba_color[3]})`;
 
 
             highlightElem.style.transform = `translate(${x_pos}px,${y_pos}px)`;
@@ -753,15 +782,10 @@ function markMoveToSite(fromSquare, toSquare) {
         parentElem.prepend(highlightElem);
     }
 
-    const defaultFromSquareStyle = 'background-color: rgb(120 130 255 / 90%); border: 4px solid rgb(0 0 0 / 50%);';
-    const defaultToSquareStyle = 'background-color: rgb(60 140 255 / 90%); border: 4px dashed rgb(0 0 0 / 50%);';
-    const negativeFromSquareStyle = 'background-color: rgb(255 0 0 / 30%); border: 4px solid rgb(0 0 0 / 50%);';
-    const negativeToSquareStyle = 'background-color: rgb(255 0 0 / 30%); border: 4px dashed rgb(0 0 0 / 50%);';
 
 
-
-    highlight(fromSquare, (isPlayerTurn ? defaultFromSquareStyle : negativeFromSquareStyle));
-    highlight(toSquare, (isPlayerTurn ? defaultToSquareStyle : negativeToSquareStyle));
+    highlight(fromSquare, defaultFromSquareStyle, rgba_color);
+    highlight(toSquare, defaultToSquareStyle, rgba_color);
 }
 
 function removeSiteMoveMarkings() {
@@ -867,8 +891,8 @@ function getTurn() {
 function updateBestMove(mutationArr) {
     const FenUtil = new FenUtils();
     let currentFen = FenUtil.getFen();
-	
-	
+
+
     if (currentFen != lastFen) {
         lastFen = currentFen;
 
@@ -876,19 +900,18 @@ function updateBestMove(mutationArr) {
         if (mutationArr) {
             let attributeMutationArr
 
-           
-            if (CURRENT_SITE === CHESS_COM) {
-                attributeMutationArr = mutationArr.filter(m => m.target.classList.contains('piece') && m.attributeName==='class');
-            } else if (CURRENT_SITE === LICHESS_ORG){
-                attributeMutationArr = mutationArr.filter(m => m.target.tagName==='PIECE' && m.attributeName==='class');
+            if (CURRENT_SITE == CHESS_COM) {
+                attributeMutationArr = mutationArr.filter(m => m.target.classList.contains('piece') && m.attributeName == 'class');
+            } else if (CURRENT_SITE == LICHESS_ORG) {
+                attributeMutationArr = mutationArr.filter(m => m.target.tagName == 'PIECE' && !m.target.classList.contains('fading') && m.attributeName == 'class');
             }
+
 
 
             if (attributeMutationArr?.length) {
                 turn = FenUtil.getPieceOppositeColor(FenUtil.getFenCodeFromPieceElem(attributeMutationArr[0].target));
 
-				
-				last_turn=turn;
+                last_turn = turn;
 
 
 
@@ -898,19 +921,12 @@ function updateBestMove(mutationArr) {
                 }
 
                 Interface.log(`Turn updated to ${turn}!`);
-				
-                
-				
-                updateBoard(true,() => {
-					sendBestMove();
-                });
             }
         }
 
-	updateBoard(false,() => {
-		
-	});				
 
+        updateBoard();
+        sendBestMove();
     }
 }
 
@@ -930,19 +946,18 @@ function sendBestMove() {
 function sendBestMoveRequest() {
     const FenUtil = new FenUtils();
     let currentFen = FenUtil.getFen();
-	
+    possible_moves = [];
 
     reloadChessEngine(false, () => {
         Interface.log('Sending best move request to the engine!');
 
-		lastBestMoveID++;
-		let request={ id: lastBestMoveID, fen: currentFen };
+        lastBestMoveID++;
 
 
         if (use_book_moves) {
-            getBookMoves(request);
+            getBookMoves({ id: lastBestMoveID, fen: currentFen });
         } else {
-            getBestMoves(request);
+            getBestMoves({ id: lastBestMoveID, fen: currentFen });
         }
     });
 }
@@ -959,27 +974,31 @@ function clearBoard() {
 
     removeSiteMoveMarkings();
 }
-function updateBoard(clear,callback) {
-	if(clear)
-		clearBoard();
+function updateBoard(clear = true) {
+    if (clear)
+        clearBoard();
 
     const FenUtil = new FenUtils();
     let currentFen = FenUtil.getFen();
 
-    if (currentFen === ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") || currentFen === ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")) {
+    if (currentFen == ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") || currentFen == ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")) {
         enemyScore = 0;
         myScore = 0;
         Interface.boardUtils.updateBoardPower(myScore, enemyScore);
     }
 
-	isPlayerTurn = playerColor == null || turn == playerColor;
-	
-	
-    Interface.boardUtils.updateBoardFen(currentFen);
+    isPlayerTurn = playerColor == null || last_turn == null || last_turn == playerColor;
 
-	
-    callback();
+
+    Interface.boardUtils.updateBoardFen(currentFen);
 }
+
+
+function removeDuplicates(arr) {
+    return arr.filter((item,
+        index) => arr.indexOf(item) === index);
+}
+
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -1007,10 +1026,7 @@ function getBestMoves(request) {
                 return;
             }
             if (e.data.includes('bestmove')) {
-
-
                 let move = e.data.split(' ')[1];
-                let opponent_move = e.data.split(' ')[3];
 
 
 
@@ -1023,16 +1039,15 @@ function getBestMoves(request) {
                 let depth = infoObj.depth || current_depth;
                 let move_time = infoObj.time || current_movetime;
 
+                let possible_move = e.data.slice(e.data.lastIndexOf("pv"), e.data.length).split(" ")[1];
+                possible_moves.push(possible_move);
+
 
 
                 if (engineMode == DEPTH_MODE) {
-
                     Interface.updateBestMoveProgress(`Depth: ${depth}`);
-
                 } else {
-
                     Interface.updateBestMoveProgress(`Move time: ${move_time} ms`);
-
                 }
 
             }
@@ -1044,21 +1059,23 @@ function getBestMoves(request) {
     }
 }
 
+var updatingBestMove = false;
+
 function observeNewMoves() {
     updateBestMove();
 
     const boardObserver = new MutationObserver(mutationArr => {
         lastPlayerColor = playerColor;
 
-        updatePlayerColor(()=>{
-			if (playerColor != lastPlayerColor) {
-				Interface.log(`Player color changed from ${lastPlayerColor} to ${playerColor}!`);
+        updatePlayerColor(() => {
+            if (playerColor != lastPlayerColor) {
+                Interface.log(`Player color changed from ${lastPlayerColor} to ${playerColor}!`);
 
-				updateBestMove();
-			} else {
-				updateBestMove(mutationArr);
-			}
-		});
+                updateBestMove();
+            } else {
+                updateBestMove(mutationArr);
+            }
+        });
 
 
     });
@@ -1071,8 +1088,11 @@ function addGuiPages() {
 
     Gui.addPage("Main", `
     <div class="rendered-form" id="main-tab">
-        <script>${GM_getResourceText('jquery.js')}</script>
-        <script>${GM_getResourceText('chessboard.js')}</script>
+
+                <script>${CURRENT_SITE != LICHESS_ORG ? GM_getResourceText('jquery.js') : ""}</script>
+                <script>${CURRENT_SITE != LICHESS_ORG ? GM_getResourceText('chessboard.js') : ""}</script>
+
+        
         <div class="card">
             <div class="card-body" id="chessboard">
                 <div class="main-title-bar">
@@ -1239,7 +1259,7 @@ function addGuiPages() {
         #fen{
             color:#000;
             font-size: 15px;
-            max-width: min-content;
+            word-break: break-word;
             transition:0.2s;
         }
         #fen.night{
@@ -1364,6 +1384,7 @@ function addGuiPages() {
         .container .checkmark:after {
             width: 40%;
             height: 70%;
+            margin-left: 1px;
             border: solid white;
             border-width: 0 3px 3px 0;
             -webkit-transform: rotate(45deg);
@@ -1404,6 +1425,8 @@ function addGuiPages() {
 
 
                 <div id="reload-engine-div" style="display:${node_engine_id == engineIndex ? 'none' : 'block'};">
+
+
                     <label class="container">Enable Engine Reload
                         <input type="checkbox" id="reload-engine" ${reload_engine == true ? 'checked' : ''}>
                         <span class="checkmark"></span>
@@ -1414,6 +1437,9 @@ function addGuiPages() {
                         <input type="number" id="reload-count" value="${reload_every}">
                         <label for="reload-count"> moves</label>
                     </div>
+
+
+    
                 </div>
 
 
@@ -1441,12 +1467,13 @@ function addGuiPages() {
 
 			<h7 class="card-title">Engine Mode:</h7>
             <div class="form-group field-select-engine-mode">
-			
                 <select class="form-control" name="select-engine-mode" id="select-engine-mode">
                     <option value="option-depth" id="select-engine-mode-0">Depth</option>
                     <option value="option-movetime" id="select-engine-mode-1">Move time</option>
                 </select>
             </div>
+
+
 			
             <h7 class="card-title">Engine Power:</h7>
                 <input type="range" class="form-range" min="${MIN_DEPTH}" max="${MAX_DEPTH}" step="1" value="${current_depth}" id="depth-range">
@@ -1454,19 +1481,39 @@ function addGuiPages() {
                 <input type="range" class="form-range" min="${MIN_MOVETIME}" max="${MAX_MOVETIME}" step="50" value="${current_movetime}" id="movetime-range">
                 <input type="number" class="form-range" min="${MIN_MOVETIME}" max="${MAX_MOVETIME}" value="${current_movetime}" id="movetime-range-number">
 			</div>
-            <div class="card-footer sideways-card" id="elo">${getEloDescription()}</div>
+            
+            <div class="card-footer sideways-card" id="elo">
+                <ul style="margin:0px;">
+                    <li id="value">
+                        Elo: 
+                    </li>
+                    <li id="rank">
+                        Rank: 
+                    </li>
+                    <li id="power">
+                        Elo: 
+                    </li>
+                </ul>
+            </div>
         </div>
 
 
 
         <div class="card">
             <div class="card-body">
-                <h4 class="card-title"><span>&#9888;</span>Visual (Chess.com chessboard):</h4>
+                <h4 class="card-title">Visual:</h4>
 
 				<h6 class="alert">
-					Warning: Displaying moves are detectable, use with caution !! 
+                    <span>&#9888;</span>Warning<span>&#9888;</span>: Displaying moves are detectable, use with caution !! 
 				</h6>
 				
+                <div id="max-moves-div" style="display:${node_engine_id == engineIndex ? 'none' : 'block'};">
+                    <div>
+                        <label for="reload-count">Max Best Moves</label>
+                        <input type="number" min="1" max="4" id="max-moves" value="${max_best_moves}">
+                    </div>
+                </div>
+
                 <label class="container">Display moves on chessboard
                     <input type="checkbox" id="display-moves-on-site" ${displayMovesOnSite == true ? 'checked' : ''}>
 					<span class="checkmark"></span>
@@ -1542,15 +1589,17 @@ function fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRan
     }
 
 
-    eloElem.innerText = getEloDescription();
 
+    setEloDescription(eloElem);
 }
 
 
 async function resetSettings() {
     await GM_setValue(dbValues.nightMode, undefined);
 
+
     Gui.close();
+
     initialize();
 }
 
@@ -1576,6 +1625,8 @@ function openGUI() {
 
         const depthRangeElem = Gui.document.querySelector('#depth-range');
         const depthRangeNumberElem = Gui.document.querySelector('#depth-range-number');
+        const maxMovesElem = Gui.document.querySelector('#max-moves');
+        const maxMovesDivElem = Gui.document.querySelector('#max-moves-div');
         const moveTimeRangeElem = Gui.document.querySelector('#movetime-range');
         const moveTimeRangeNumberElem = Gui.document.querySelector('#movetime-range-number');
         const engineModeElem = Gui.document.querySelector('#select-engine-mode');
@@ -1652,17 +1703,7 @@ function openGUI() {
             }
         }
 
-        if (CURRENT_SITE === LICHESS_ORG) {
-            // disabled web engine selection due to cors issues
-            engineElem.childNodes.forEach(elem => {
-                if (elem.id === "web-engine") {
-                    elem.disabled = true;
-                }
-                else if (elem.id === "local-engine") {
-                    elem.selected = true;
-                }
-            })
-        }
+
 
 
         fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRangeElem, moveTimeRangeNumberElem, eloElem);
@@ -1680,8 +1721,8 @@ function openGUI() {
             Gui.document.querySelector('#gui').style.minWidth = "350px";
             Gui.document.querySelector('#content').style.maxHeight = "500px";
             Gui.document.querySelector('#content').style.overflow = "scroll";
-            Gui.document.querySelector('#chessboard').style.display = "none";
-            Gui.document.querySelector('#orientation').style.display = "none";
+            Gui.document.querySelector('#chessboard').remove();
+            Gui.document.querySelector('#orientation').remove();
             Gui.document.querySelector('#engine-log-container').style.maxHeight = "100px";
             Gui.document.querySelector('#engine-log-container').style.overflow = "scroll";
             Gui.document.querySelector('#userscript-log-container').style.maxHeight = "100px";
@@ -1701,6 +1742,25 @@ function openGUI() {
             });
         }
 
+
+        if (CURRENT_SITE == LICHESS_ORG) {
+            // disabled web engine selection due to cors issues
+            engineElem.childNodes.forEach(elem => {
+                if (elem.id == "web-engine") {
+                    elem.disabled = true;
+                }
+            })
+
+            if(!isNotCompatibleBrowser()){
+                Gui.document.querySelector('#chessboard').remove();
+                Gui.document.querySelector('#orientation').remove();
+            }
+
+            engineElem.selectedIndex = node_engine_id;
+            maxMovesDivElem.style.display = "none";
+            engineNameDivElem.style.display = "block";
+            reloadEngineDivElem.style.display = "none";
+        }
 
 
         resetElem.onclick = () => {
@@ -1727,20 +1787,16 @@ function openGUI() {
         }
 
         getBestMoveElem.onclick = () => {
+            if (forcedBestMove)
+                return;
+
+            getBestMoveElem.disabled = true;
             forcedBestMove = true;
-			
-			if(last_turn!==null)
-				turn=last_turn;
 
-			
-			
-            updateBoard(true,()=>{
-				sendBestMove();
-			});
 
-			
 
-            
+            updateBoard();
+            sendBestMove();
         }
 
         engineModeElem.onchange = () => {
@@ -1797,12 +1853,12 @@ function openGUI() {
             if (node_engine_id == engineIndex) {
                 reloadEngineDivElem.style.display = "none";
                 engineNameDivElem.style.display = "block";
-
-
+                maxMovesDivElem.style.display = "none";
             }
             else {
                 reloadEngineDivElem.style.display = "block";
                 engineNameDivElem.style.display = "none";
+                maxMovesDivElem.style.display = "block";
             }
 
 
@@ -1836,6 +1892,14 @@ function openGUI() {
         depthRangeNumberElem.onchange = () => {
             changeEnginePower(depthRangeNumberElem.value, eloElem);
         };
+
+
+        maxMovesElem.onchange = () => {
+            max_best_moves = maxMovesElem.value;
+            GM_setValue(dbValues.max_best_moves, max_best_moves);
+        };
+
+
 
         moveTimeRangeElem.onchange = () => {
             changeEnginePower(moveTimeRangeElem.value, eloElem);
@@ -1904,14 +1968,14 @@ function changeEnginePower(val, eloElem) {
     }
 
 
-    eloElem.innerText = getEloDescription();
+    setEloDescription(eloElem);
 }
 
 function reloadChessEngine(forced, callback) {
     // reload only if using local engines
-    if (node_engine_id == engineIndex && forced == false){
+    if (node_engine_id == engineIndex && forced == false) {
         callback();
-	}
+    }
     else if (reload_engine == true && reload_count >= reload_every || forced == true) {
         reload_count = 1;
         Interface.log(`Reloading the chess engine!`);
@@ -1931,7 +1995,7 @@ function reloadChessEngine(forced, callback) {
 
 function loadChessEngine(callback) {
     // exclude lichess.org
-    if (CURRENT_SITE === LICHESS_ORG) {
+    if (CURRENT_SITE == LICHESS_ORG) {
         return callback();
     }
 
@@ -1965,8 +2029,8 @@ function updatePlayerColor(callback) {
 
 
     Interface.boardUtils.updateBoardOrientation(playerColor);
-	
-	callback();
+
+    callback();
 }
 
 function initialize() {
@@ -1978,10 +2042,10 @@ function initialize() {
 
     initializeDatabase(() => {
         loadChessEngine(() => {
-            updatePlayerColor(()=>{
-				addGuiPages();
-				openGUI();
-			});
+            updatePlayerColor(() => {
+                addGuiPages();
+                openGUI();
+            });
         });
     });
 
@@ -2041,6 +2105,7 @@ async function initializeDatabase(callback) {
     node_engine_name = "stockfish-15.exe"
     current_depth = Math.round(MAX_DEPTH / 2);
     current_movetime = Math.round(MAX_MOVETIME / 3);
+    max_best_moves = 1;
 
     if (GM_getValue(dbValues.nightMode) == undefined) {
         await GM_setValue(dbValues.nightMode, nightMode);
@@ -2057,6 +2122,7 @@ async function initializeDatabase(callback) {
         await GM_setValue(dbValues.node_engine_name, node_engine_name);
         await GM_setValue(dbValues.current_depth, current_depth);
         await GM_setValue(dbValues.current_movetime, current_movetime);
+        await GM_setValue(dbValues.max_best_moves, max_best_moves);
         callback();
     } else {
         nightMode = await GM_getValue(dbValues.nightMode);
@@ -2073,6 +2139,7 @@ async function initializeDatabase(callback) {
         node_engine_name = await GM_getValue(dbValues.node_engine_name);
         current_depth = await GM_getValue(dbValues.current_depth);
         current_movetime = await GM_getValue(dbValues.current_movetime);
+        max_best_moves = await GM_getValue(dbValues.max_best_moves);
         callback();
     }
 }
