@@ -3,7 +3,7 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     8.2
+// @version     8.2.5
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.life/
 // @match       https://www.chess.com/*
@@ -231,7 +231,7 @@ function getBookMoves(request) {
 function getNodeBestMoves(request) {
     GM_xmlhttpRequest({
         method: "GET",
-        url: node_engine_url + "/getBestMove?fen=" + request.fen + "&engine_mode=" + engineMode + "&depth=" + current_depth + "&movetime=" + current_movetime + "&turn=" + last_turn || turn + "&engine_name=" + node_engine_name,
+        url: node_engine_url + "/getBestMove?fen=" + request.fen + "&engine_mode=" + engineMode + "&depth=" + current_depth + "&movetime=" + current_movetime + "&turn=" + (last_turn || turn) + "&engine_name=" + node_engine_name,
         headers: {
             "Content-Type": "application/json"
         },

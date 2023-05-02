@@ -1,17 +1,30 @@
-const { spawn } = require('child_process')
-const { VARS } = require('../VARS')
-const { isWindows } = require('./environment')
-const { windowsEnginePath, linuxEnginePath } = require('./path')
-
-const executeEngine = (command,engineCmd = 'go depth 10',engine) => {
+const { spawn, exec } = require('child_process')
+const path = require('path')
+const fs = require('fs');
 
 
+const EnginePath = (engine_name) => {
+  var engine_path = path.resolve(process.cwd(), 'utils/engine', engine_name)
 
-  const executableEnginePath = isWindows()
-    ? windowsEnginePath(engine)
-    : linuxEnginePath(engine)
+  if (!fs.existsSync(engine_path)) {
+    console.log("engine not found: " + engine_name)
+    return false
+  }
+  return engine_path
+}
+
+const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
+  const executableEnginePath = EnginePath(engine_name)
+
+
 
   return new Promise((resolve, reject) => {
+    if (!executableEnginePath) {
+      return resolve(false)
+    }
+
+    console.log("using engine: " + engine_name)
+
     const engine = spawn(executableEnginePath, { shell: true })
 
     engine.stdout.on('data', (chunk) => {
@@ -35,13 +48,22 @@ const executeEngine = (command,engineCmd = 'go depth 10',engine) => {
       }
     })
 
-    engine.stdout.on('error', (err) => {
-		console.log(err)
-		//reject(err)
-    })
 
-    engine.stdin.write(`${command}\n`)
-    engine.stdin.write(`${engineCmd}\n`)
+
+    try {
+      engine.stdin.write(`${command}\n`)
+      engine.stdin.write(`${engineCmd}\n`)
+    } catch (error) {
+      console.log("Fixing engine file permession, if this happen again run this command: chmod +x utils/engine/engine_name");
+      exec("chmod +x " + executableEnginePath, (error, stdout, stderr) => {
+        if (!error) {
+          engine.stdin.write(`${command}\n`)
+          engine.stdin.write(`${engineCmd}\n`)
+        }
+      })
+    }
+
+
   })
 }
 

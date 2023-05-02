@@ -55,6 +55,10 @@ class ChessEngine {
       )
 
     }
+    if(!engineResult){
+      return false
+    }
+    
       return {
         fen: this.getLastFen(),
         turn: this.turn,

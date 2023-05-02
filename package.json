@@ -1,16 +1,14 @@
 {
   "dependencies": {
     "express": "^4.17.3",
-    "nexe": "^4.0.0-rc.2",
-    "nodemon": "^2.0.15",
     "request": "^2.88.2"
   },
   "name": "server",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon app.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
