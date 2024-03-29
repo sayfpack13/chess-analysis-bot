@@ -1162,7 +1162,7 @@ function addGuiPages() {
     Gui.addPage('Settings', `
     <style>
         body{
-            width:40% !important;
+            /*width:40% !important;*/
             display:grid;
             justify-items: center;
             background-color:#fff;
