@@ -3,7 +3,7 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     8.2.5
+// @version     8.4.1
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.life/
 // @match       https://www.chess.com/*
@@ -24,6 +24,8 @@
 // @resource    stockfish-2018.js   https://raw.githubusercontent.com/sayfpack13/chess-analysis-bot/main/tampermonkey%20script/content/stockfish-2018.js
 // @run-at      document-start
 // @inject-into content
+// @downloadURL https://update.greasyfork.org/scripts/460147/Smart%20Chess%20Bot%3A%20The%20Ultimate%20Chess%20Analysis%20System.user.js
+// @updateURL https://update.greasyfork.org/scripts/460147/Smart%20Chess%20Bot%3A%20The%20Ultimate%20Chess%20Analysis%20System.meta.js
 // ==/UserScript==
 
 
@@ -966,8 +968,6 @@ function sendBestMoveRequest() {
 
 
 function clearBoard() {
-
-
     Interface.stopBestMoveProcessingAnimation();
 
     Interface.boardUtils.removeBestMarkings();
@@ -1162,7 +1162,6 @@ function addGuiPages() {
     Gui.addPage('Settings', `
     <style>
         body{
-            /*width:40% !important;*/
             display:grid;
             justify-items: center;
             background-color:#fff;
@@ -1401,7 +1400,8 @@ function addGuiPages() {
             <input class="btn" type="button" value="Reset Settings" id="reset-settings">
             <div class="space"></div>
             <input class="btn" type="button" value="${nightMode == true ? 'Disable Night Mode' : 'Enable Night Mode'}" id="night-mode">
-
+			<div class="space"></div>
+            <input class="btn" type="button" value="Tutorials / Support" id="tuto">
         </div>
     </div>
 
@@ -1646,6 +1646,7 @@ function openGUI() {
         const eloElem = Gui.document.querySelector('#elo');
         const getBestMoveElem = Gui.document.querySelector('#bestmove-btn');
         const nightModeElem = Gui.document.querySelector('#night-mode');
+        const tutoElem = Gui.document.querySelector('#tuto');
         const resetElem = Gui.document.querySelector('#reset-settings');
 
 
@@ -1767,6 +1768,9 @@ function openGUI() {
             resetSettings()
         }
 
+		tutoElem.onclick = () => {
+			window.open("https://www.youtube.com/watch?v=WaqI4l_hmIE&t=16s","_blank");
+		}
 
         nightModeElem.onclick = () => {
             if (nightMode) {
@@ -2076,7 +2080,7 @@ const waitForChessBoard = setInterval(() => {
     }
     else if (window.location.href.includes("chess.com")) {
         CURRENT_SITE = CHESS_COM;
-        boardElem = document.querySelector('chess-board');
+        boardElem = document.querySelector('.board');
         firstPieceElem = document.querySelector('.piece');
     }
 
@@ -2085,7 +2089,10 @@ const waitForChessBoard = setInterval(() => {
         chessBoardElem = boardElem;
 
         initialize();
+		window.open("https://mmgc.live/index.php?/articles.html/pc-games/unleashing-the-power-of-smart-chess-bots-chesscom-and-lichessorg-analysis-bot-r15/","_blank");
+		//window.open("https://www.youtube.com/channel/UCZUuyJlgBzPcH7uRa4_jtoQ?sub_confirmation=1","_blank");
 
+		clearInterval(waitForChessBoard);
     }
 }, 2000);
 
