@@ -1,35 +1,27 @@
 # Smart Chess Bot: The Ultimate Chess Analysis System
 
-# best chess analysis bot made for educational purposes only !!
+## Overview
 
-# Tutorial: https://www.youtube.com/watch?v=WaqI4l_hmIE&ab_channel=Sayfpack
+Smart Chess Bot is an advanced chess analysis system designed to elevate your gameplay to new heights. Leveraging state-of-the-art algorithms and cutting-edge technology, our system provides unparalleled insights into chess positions, empowering players to make informed and strategic moves.
 
+## Features
 
-# Description:
-Our chess analysis system is designed to give players the edge they need to win.
-By using advanced algorithms and cutting-edge technology, our system can analyze any chess position and suggest the best possible move, helping players to make smarter and more informed decisions on the board.
+- **Intelligent Analysis**: Our system employs sophisticated algorithms to analyze chess positions and recommend optimal moves.
+- **Multiple Chess Engines**: Choose from a selection of JavaScript UCI chess engines, including Lozza Engine, Stockfish 5 Engine, and Stockfish 2018 Engine, each offering varying speeds and maximum Elo ratings.
+- **Browser Compatibility**: Compatible with popular browsers such as Chrome, Firefox, Edge, and Opera, ensuring accessibility for players across platforms.
+- **User-friendly Interface**: Enjoy a seamless and intuitive user experience, making it easy to integrate our system into your chess strategy.
 
+## Getting Started
 
-# Available chess engines (Javascript UCI chess engines):
-- Lozza Engine (slow / max elo rating: 2340)
-- Stockfish 5 Engine (faster / max elo rating: 3500)
-- Stockfish 2018 Engine (fastest / max elo rating: 3400)
+To start using Smart Chess Bot, follow these simple steps:
 
+1. **Installation**: Install the TamperMonkey extension for your browser from [here](https://www.tampermonkey.net/).
+2. **TamperMonkey Script**: Add the TamperMonkey script available [here](https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system) to enable Smart Chess Bot functionality.
+3. **Allow Pop-ups**: Ensure that pop-ups are allowed in your browser settings to enable the full functionality of the system.
+4. **Optional: Node Server Setup**: If you prefer to run the chess engine on your local system, refer to our tutorial [here](https://www.youtube.com/watch?v=WaqI4l_hmIE&ab_channel=Sayfpack) for instructions on setting up a Node server.
 
-# Compatibility:
-Works well with almost every browser including Chrome, Firefox, Edge, and Opera...
+## Screenshots
 
-
-# Requirements:
-1) TamperMonkey extension: https://www.tampermonkey.net/
-2) TamperMonkey Script: https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system
-3) Allow pop-ups !!
-4) if you want to use node server to run chess engine on your system:
-- Tutorial: https://www.youtube.com/watch?v=WaqI4l_hmIE&ab_channel=Sayfpack
-
-
-# SCREENSHOTS
-![1](https://user-images.githubusercontent.com/80095684/219965567-57ced9ff-5dbe-4b4d-969c-e6c42d83c5b8.png)
-![2](https://user-images.githubusercontent.com/80095684/219965566-224f8acb-38d1-4ff8-9b29-e223c1361273.png)
-![3](https://user-images.githubusercontent.com/80095684/219969063-498cb06b-f97c-4e68-a1cf-e8de3f1a677f.png)
-
+![Screenshot 1](https://user-images.githubusercontent.com/80095684/219965567-57ced9ff-5dbe-4b4d-969c-e6c42d83c5b8.png)
+![Screenshot 2](https://user-images.githubusercontent.com/80095684/219965566-224f8acb-38d1-4ff8-9b29-e223c1361273.png)
+![Screenshot 3](https://user-images.githubusercontent.com/80095684/219969063-498cb06b-f97c-4e68-a1cf-e8de3f1a677f.png)
