@@ -19,8 +19,6 @@ var counter = 0
 
 
 
-
-
 app.get("/getBestMove", (req, res) => {
     var fen = req.query.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     var depth = req.query.depth || 10
@@ -37,24 +35,27 @@ app.get("/getBestMove", (req, res) => {
     }
 
     counter++
-    console.log("\n" + counter + ") turn updated to: " + (turn === 'w' ? 'White' : 'Black'))
+    console.log("\n#" + counter + ") turn updated to: " + (turn === 'w' ? 'White' : 'Black'))
 
 
-    chessEngine.start(engine_mode, turn, depth, movetime, engine_name, fen).then((result) => {
-        if (result) {
-            res.send({
-                fen: result.fen,
-                move: result.bestMove,
-                turn: result.turn,
-                depth: depth,
-                movetime: movetime,
-                score: depth,
-                provider: engine_name
-            })
+    chessEngine.start(counter, engine_mode, turn, depth, movetime, engine_name, fen).then((result) => {
+
+        const parsedResult = {
+            fen: result.fen,
+            move: result.bestMove,
+            turn: result.turn,
+            depth: depth,
+            movetime: movetime,
+            score: depth,
+            provider: engine_name
         }
-        
 
-        console.log("Done !!")
-        return res.end()
+
+        console.log("Request #" + result.id + " Done !!")
+        //console.log(parsedResult)
+        return res.send(parsedResult)
+    }).catch((error) => {
+        console.log("Error: " + error)
+        return res.send({ response: false })
     })
 })

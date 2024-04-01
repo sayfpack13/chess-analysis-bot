@@ -6,9 +6,6 @@ class ChessEngine {
     this.fen = []
   }
 
-  isWhiteTurn() {
-    return this.turn === 'w'
-  }
 
   getTurn() {
     return this.turn
@@ -26,7 +23,7 @@ class ChessEngine {
     this.turn = 'w'
   }
 
-  async start(engine_mode, turn, depth, movetime, engine_name, fen) {
+  async start(id, engine_mode, turn, depth, movetime, engine_name, fen) {
     this.engine_mode = engine_mode
     this.turn = turn
     this.depth = depth
@@ -35,39 +32,33 @@ class ChessEngine {
     this.fen.push(fen)
 
 
-	var engineResult
+
 
     if (this.engine_mode == VARS.DEPTH_MODE) {
       console.log("using depth mode")
-	  
-      engineResult = await executeEngine(
-        `position fen ${this.getLastFen()}\n`,
-        `go depth ${this.depth}`,
-        this.engine
-      )
+      engine_mode = `go depth ${this.depth}`
     } else {
       console.log("using movetime mode")
-
-      engineResult = await executeEngine(
-        `position fen ${this.getLastFen()}\n`,
-        `go movetime ${this.movetime}`,
-        this.engine
-      )
-
+      engine_mode = `go movetime ${this.movetime}`
     }
-    if(!engineResult){
-      return false
+
+
+    const engineResult = await executeEngine(
+      `position fen ${this.getLastFen()}\n`,
+      engine_mode,
+      this.engine
+    )
+
+    return {
+      id: id,
+      fen: this.getLastFen(),
+      turn: this.turn,
+      setDepth: this.depth,
+      engineDepth: engineResult.depth,
+      selDepth: engineResult.seldepth,
+      bestMove: engineResult.bestmove,
+      possibleHumanMove: engineResult.possible_human_move,
     }
-    
-      return {
-        fen: this.getLastFen(),
-        turn: this.turn,
-        setDepth: this.depth,
-        engineDepth: engineResult.depth,
-        selDepth: engineResult.seldepth,
-        bestMove: engineResult.bestmove,
-        possibleHumanMove: engineResult.possible_human_move,
-      }
   }
 }
 

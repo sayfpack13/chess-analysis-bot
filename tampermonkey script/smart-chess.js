@@ -3,7 +3,7 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     8.4.1
+// @version     8.5
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.life/
 // @match       https://www.chess.com/*
@@ -239,7 +239,9 @@ function getNodeBestMoves(request) {
         },
         onload: function (response) {
             if (response.response == "false") {
-                return;
+                forcedBestMove = false;
+                Gui.document.querySelector('#bestmove-btn').disabled = false;
+                return Interface.log("check node server logs !!");
             }
 
             if (lastBestMoveID != request.id) {
@@ -265,11 +267,10 @@ function getNodeBestMoves(request) {
 
 
             moveResult(move.slice(0, 2), move.slice(2, 4), power, true);
-
-
-
-        }, onerror: function () {
-            Interface.log("check node server !!");
+        }, onerror: function (error) {
+            forcedBestMove = false;
+            Gui.document.querySelector('#bestmove-btn').disabled = false;
+            Interface.log("make sure node server is running !!");
         }
     });
 

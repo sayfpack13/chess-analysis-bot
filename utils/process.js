@@ -1,70 +1,58 @@
-const { spawn, exec } = require('child_process')
-const path = require('path')
+const { spawn } = require('child_process');
+const path = require('path');
 const fs = require('fs');
 
 
-const EnginePath = (engine_name) => {
-  var engine_path = path.resolve(process.cwd(), 'utils/engine', engine_name)
-
-  if (!fs.existsSync(engine_path)) {
-    console.log("engine not found: " + engine_name)
-    return false
-  }
-  return engine_path
-}
 
 const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
-  const executableEnginePath = EnginePath(engine_name)
-
-
-
   return new Promise((resolve, reject) => {
-    if (!executableEnginePath) {
-      return resolve(false)
+    const engines_path = path.resolve(process.cwd(), 'utils/engine');
+    const engine_path = path.resolve(process.cwd(), 'utils/engine',engine_name);
+
+    if (!fs.existsSync(engine_path)) {
+      reject("Engine not found: " + engine_name);
     }
 
-    console.log("using engine: " + engine_name)
+    console.log("Using engine: " + engine_name);
 
-    const engine = spawn(executableEnginePath, { shell: true })
+    const engine = spawn(engine_name, { 
+      shell: true,
+      cwd:engines_path
+    });
+
+    engine.stdin.write(`${command}\n`);
+    engine.stdin.write(`${engineCmd}\n`);
+
+    
+
 
     engine.stdout.on('data', (chunk) => {
-      const result = chunk.toString()
-      // Get the last line or the best move
-      // from the engine
+      const result = chunk.toString();
       if (result.includes('bestmove')) {
-        engine.kill()
+        engine.kill();
 
-        const depth = result.match(/info\sdepth\s\d+/)
-        const seldepth = result.match(/seldepth\s\d+/)
-        const bestmove = result.match(/bestmove\s\w+/)
-        const ponder = result.match(/ponder\s\w+/)
+        const depth = result.match(/info\sdepth\s\d+/);
+        const seldepth = result.match(/seldepth\s\d+/);
+        const bestmove = result.match(/bestmove\s\w+/);
+        const ponder = result.match(/ponder\s\w+/);
 
         resolve({
           depth: depth ? Number(depth[0].match(/\d+/)[0]) : null,
           seldepth: seldepth ? Number(seldepth[0].match(/\d+/)[0]) : null,
           bestmove: bestmove ? bestmove[0].replace('bestmove ', '') : '',
           possible_human_move: ponder ? ponder[0].replace('ponder ', '') : '',
-        })
+        });
       }
-    })
+    });
 
-
-
-    try {
-      engine.stdin.write(`${command}\n`)
-      engine.stdin.write(`${engineCmd}\n`)
-    } catch (error) {
-      console.log("Fixing engine file permession, if this happen again run this command: chmod +x utils/engine/engine_name");
-      exec("chmod +x " + executableEnginePath, (error, stdout, stderr) => {
-        if (!error) {
-          engine.stdin.write(`${command}\n`)
-          engine.stdin.write(`${engineCmd}\n`)
-        }
-      })
-    }
-
-
-  })
+    engine.on('error', (err) => {
+      reject(err);
+    });
+    
+    engine.stderr.on('data', (data) => {
+      reject(data);
+    });
+  });
 }
 
 module.exports = {
