@@ -18,7 +18,18 @@ To start using Smart Chess Bot, follow these simple steps:
 1. **Installation**: Install the TamperMonkey extension for your browser from [here](https://www.tampermonkey.net/).
 2. **TamperMonkey Script**: Add the TamperMonkey script available [here](https://greasyfork.org/en/scripts/460147-c-a-s-chess-assistance-system) to enable Smart Chess Bot functionality.
 3. **Allow Pop-ups**: Ensure that pop-ups are allowed in your browser settings to enable the full functionality of the system.
-4. **Optional: Node Server Setup**: If you prefer to run the chess engine on your local system, refer to our tutorial [here](https://www.youtube.com/watch?v=WaqI4l_hmIE&ab_channel=Sayfpack) for instructions on setting up a Node server.
+4. **Optional: Node Server Setup**: To run the chess engine locally on your system, follow these steps:
+
+   - **Install Node Modules**: Run `npm install` in your terminal to install the necessary dependencies.
+
+   - **Download Stockfish Engine**: [Download](https://stockfishchess.org/download/)
+
+   - **Stockfish Engine Path**: Place the Stockfish engine in the following path: `utils/engine`.
+
+   - **TamperMonkey Script**: Set engine name in the script settings.
+
+   - **Run Server Command**: npm start server.js
+
 
 ## Screenshots
 
