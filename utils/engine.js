@@ -43,11 +43,18 @@ class ChessEngine {
     }
 
 
-    const engineResult = await executeEngine(
-      `position fen ${this.getLastFen()}\n`,
-      engine_mode,
-      this.engine
-    )
+    var engineResult
+
+    try {
+      engineResult = await executeEngine(
+        `position fen ${this.getLastFen()}\n`,
+        engine_mode,
+        this.engine
+      )
+    } catch (err) {
+      throw (err)
+    }
+
 
     return {
       id: id,

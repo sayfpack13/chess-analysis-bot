@@ -3,9 +3,9 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     8.5
+// @version     8.5.2
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
-// @supportURL  https://mmgc.life/
+// @supportURL  https://mmgc.ninja/
 // @match       https://www.chess.com/*
 // @match       https://lichess.org/*
 // @grant       GM_getValue
@@ -13,6 +13,7 @@
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getResourceText
 // @grant       GM_registerMenuCommand
+// @connect     localhost
 // @description 	Our chess analysis system is designed to give players the edge they need to win. By using advanced algorithms and cutting-edge technology, our system can analyze any chess position and suggest the best possible move, helping players to make smarter and more informed decisions on the board.
 // @description:fr 	Notre système d'analyse d'échecs est conçu pour donner aux joueurs l'avantage dont ils ont besoin pour gagner. En utilisant des algorithmes avancés et des technologies de pointe, notre système peut analyser n'importe quelle position d'échecs et suggérer le meilleur coup possible, aidant les joueurs à prendre des décisions plus intelligentes et plus éclairées sur l'échiquier.
 // @require     https://greasyfork.org/scripts/460400-usergui-js/code/userguijs.js?version=1157130
@@ -149,6 +150,75 @@ const opposite_possible_moves_colors = [
 ]
 const defaultFromSquareStyle = 'border: 4px solid rgb(0 0 0 / 50%);';
 const defaultToSquareStyle = 'border: 4px dashed rgb(0 0 0 / 50%);';
+
+
+// Start function
+function isNotCompatibleBrowser() {
+    return navigator.userAgent.toLowerCase().includes("firefox")
+}
+
+onload = function () {
+    if (isNotCompatibleBrowser()) {
+        Gui = new UserGui;
+    }
+
+    const waitingMessage = document.createElement('div');
+    waitingMessage.style.position = 'fixed';
+    waitingMessage.style.bottom = '0';
+    waitingMessage.style.left = '0';
+    waitingMessage.style.right = '0';
+    waitingMessage.style.backgroundColor = 'rgba(255, 54, 54, 0.7)';
+    waitingMessage.style.color = '#fff';
+    waitingMessage.style.padding = '10px';
+    waitingMessage.style.fontSize = '2rem';
+    waitingMessage.style.textAlign = 'center';
+    waitingMessage.textContent = '♟️ Smart Chess Bot is waiting for your game ♟️';
+    waitingMessage.style.zIndex="100000";
+    document.body.appendChild(waitingMessage);
+
+
+
+    const waitForChessBoard = setInterval(() => {
+        if (CURRENT_SITE) {
+            return;
+        }
+
+        if (window.location.href.includes("lichess.org")) {
+            if (document.querySelector('piece')) {
+                CURRENT_SITE = LICHESS_ORG;
+                boardElem = document.querySelector('.main-board');
+                firstPieceElem = document.querySelector('piece');
+            }
+        }
+        else if (window.location.href.includes("chess.com")) {
+            if (document.querySelector('.board').querySelector(".piece")) {
+                CURRENT_SITE = CHESS_COM;
+                boardElem = document.querySelector('.board');
+                firstPieceElem = document.querySelector('.piece');
+            }
+        }
+
+        if (boardElem && firstPieceElem && chessBoardElem != boardElem) {
+            chessBoardElem = boardElem;
+
+            initialize();
+
+            waitingMessage.style.display = 'none';
+
+            clearInterval(waitForChessBoard);
+        }
+    }, 2000);
+}
+
+if (!isNotCompatibleBrowser()) {
+    Gui = new UserGui;
+} else {
+    onload();
+}
+
+
+
+
 
 
 function moveResult(from, to, power, clear = true) {
@@ -317,22 +387,7 @@ function setEloDescription(eloElem) {
 
 
 
-function isNotCompatibleBrowser() {
-    return navigator.userAgent.toLowerCase().includes("firefox")
-}
 
-onload = function () {
-    if (isNotCompatibleBrowser()) {
-        Gui = new UserGui;
-    }
-
-}
-
-if (!isNotCompatibleBrowser()) {
-    Gui = new UserGui;
-} else {
-    onload();
-}
 
 
 Gui.settings.window.title = 'Smart Chess Bot';
@@ -490,6 +545,8 @@ function FenUtils() {
 
         if (CURRENT_SITE == CHESS_COM) {
             pieceElems = [...chessBoardElem.querySelectorAll('.piece')];
+
+
         } else if (CURRENT_SITE == LICHESS_ORG) {
             pieceElems = [...chessBoardElem.querySelectorAll('piece')];
         }
@@ -1093,11 +1150,11 @@ function addGuiPages() {
                 <script>${CURRENT_SITE != LICHESS_ORG ? GM_getResourceText('jquery.js') : ""}</script>
                 <script>${CURRENT_SITE != LICHESS_ORG ? GM_getResourceText('chessboard.js') : ""}</script>
 
-        
-        <div class="card">
+
+        <div class="card" id="chessboard-card">
             <div class="card-body" id="chessboard">
                 <div class="main-title-bar">
-                    <h4 class="card-title">Live Chessboard:</h4>
+                    <h4 class="card-title">Live Chessboard</h4>
                     <p class="card-title" id="best-move-progress"></p>
                 </div>
 
@@ -1179,7 +1236,7 @@ function addGuiPages() {
 
 
         .rendered-form{
-            width:500px;
+            width:100%;
         }
 
         .card{
@@ -1259,7 +1316,6 @@ function addGuiPages() {
         #fen{
             color:#000;
             font-size: 15px;
-            word-break: break-word;
             transition:0.2s;
         }
         #fen.night{
@@ -1267,6 +1323,14 @@ function addGuiPages() {
             transition:0.2s;
         }
 
+        #chessboard-card{
+            width:max-content;
+        }
+
+        #chessboard{
+            margin-left:auto;
+            margin-right:auto;
+        }
 
         .nav-tabs .nav-link:hover {
             border-color: #454646  #454646  #454646;
@@ -1312,14 +1376,14 @@ function addGuiPages() {
         .nav-link{
             font-weight:bold;
         }
-		
+
 		.alert {
 			padding: 20px;
 			background-color: #f44336;
 			color: white;
 		}
-		
-		
+
+
         .container {
             display: block;
             position: relative;
@@ -1342,7 +1406,7 @@ function addGuiPages() {
             width: 0;
         }
 
-        
+
         .checkmark {
             display: flex;
             justify-content: center;
@@ -1364,7 +1428,7 @@ function addGuiPages() {
             background-color: #ccc;
         }
 
-        
+
         .container input:checked ~ .checkmark {
             background-color: #2196F3;
         }
@@ -1440,12 +1504,12 @@ function addGuiPages() {
                     </div>
 
 
-    
+
                 </div>
 
 
 
-				
+
 				<div id="node-engine-div" style="display:${(engineIndex == node_engine_id) ? 'block' : 'none'};">
                     <div>
                     <label for="engine-url">Engine URL:</label>
@@ -1475,24 +1539,24 @@ function addGuiPages() {
             </div>
 
 
-			
+
             <h7 class="card-title">Engine Power:</h7>
                 <input type="range" class="form-range" min="${MIN_DEPTH}" max="${MAX_DEPTH}" step="1" value="${current_depth}" id="depth-range">
                 <input type="number" class="form-range" min="${MIN_DEPTH}" max="${MAX_DEPTH}" value="${current_depth}" id="depth-range-number">
                 <input type="range" class="form-range" min="${MIN_MOVETIME}" max="${MAX_MOVETIME}" step="50" value="${current_movetime}" id="movetime-range">
                 <input type="number" class="form-range" min="${MIN_MOVETIME}" max="${MAX_MOVETIME}" value="${current_movetime}" id="movetime-range-number">
 			</div>
-            
+
             <div class="card-footer sideways-card" id="elo">
                 <ul style="margin:0px;">
                     <li id="value">
-                        Elo: 
+                        Elo:
                     </li>
                     <li id="rank">
-                        Rank: 
+                        Rank:
                     </li>
                     <li id="power">
-                        Elo: 
+                        Elo:
                     </li>
                 </ul>
             </div>
@@ -1505,9 +1569,9 @@ function addGuiPages() {
                 <h4 class="card-title">Visual:</h4>
 
 				<h6 class="alert">
-                    <span>&#9888;</span>Warning<span>&#9888;</span>: Displaying moves are detectable, use with caution !! 
+                    <span>&#9888;</span>Warning</span>: Displaying moves are detectable, use with caution !!
 				</h6>
-				
+
                 <div id="max-moves-div" style="display:${node_engine_id == engineIndex ? 'none' : 'block'};">
                     <div>
                         <label for="reload-count">Max Best Moves</label>
@@ -1520,18 +1584,18 @@ function addGuiPages() {
 					<span class="checkmark"></span>
                 </label>
 
-                
+
                 <label class="container">Display Opponent best moves
                     <input type="checkbox" id="show-opposite-moves" ${show_opposite_moves == true ? 'checked' : ''}>
                     <span class="checkmark"></span>
                 </label>
 
-         
 
 
 
 
-       
+
+
             </div>
         </div>
 
@@ -1706,6 +1770,7 @@ function openGUI() {
         }
 
 
+        bodyElem.style.width = "100%";
 
 
         fixDepthMoveTimeInput(depthRangeElem, depthRangeNumberElem, moveTimeRangeElem, moveTimeRangeNumberElem, eloElem);
@@ -1753,7 +1818,7 @@ function openGUI() {
                 }
             })
 
-            if(!isNotCompatibleBrowser()){
+            if (!isNotCompatibleBrowser()) {
                 Gui.document.querySelector('#chessboard').remove();
                 Gui.document.querySelector('#orientation').remove();
             }
@@ -1769,9 +1834,9 @@ function openGUI() {
             resetSettings()
         }
 
-		tutoElem.onclick = () => {
-			window.open("https://www.youtube.com/watch?v=WaqI4l_hmIE&t=16s","_blank");
-		}
+        tutoElem.onclick = () => {
+            window.open("https://www.youtube.com/watch?v=WaqI4l_hmIE&t=16s", "_blank");
+        }
 
         nightModeElem.onclick = () => {
             if (nightMode) {
@@ -2053,9 +2118,6 @@ function initialize() {
             });
         });
     });
-
-
-
 }
 
 if (typeof GM_registerMenuCommand == 'function') {
@@ -2067,35 +2129,9 @@ if (typeof GM_registerMenuCommand == 'function') {
 }
 
 
-const waitForChessBoard = setInterval(() => {
-    if (CURRENT_SITE) {
-        return;
-    }
 
 
 
-    if (window.location.href.includes("lichess.org")) {
-        CURRENT_SITE = LICHESS_ORG;
-        boardElem = document.querySelector('.main-board');
-        firstPieceElem = document.querySelector('piece');
-    }
-    else if (window.location.href.includes("chess.com")) {
-        CURRENT_SITE = CHESS_COM;
-        boardElem = document.querySelector('.board');
-        firstPieceElem = document.querySelector('.piece');
-    }
-
-
-    if (boardElem && firstPieceElem && chessBoardElem != boardElem) {
-        chessBoardElem = boardElem;
-
-        initialize();
-		window.open("https://mmgc.live/index.php?/articles.html/pc-games/unleashing-the-power-of-smart-chess-bots-chesscom-and-lichessorg-analysis-bot-r15/","_blank");
-		//window.open("https://www.youtube.com/channel/UCZUuyJlgBzPcH7uRa4_jtoQ?sub_confirmation=1","_blank");
-
-		clearInterval(waitForChessBoard);
-    }
-}, 2000);
 
 
 async function initializeDatabase(callback) {

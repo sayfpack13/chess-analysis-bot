@@ -2,9 +2,11 @@ const express = require('express');
 const app = express();
 const { ChessEngine } = require("./utils/engine")
 const { VARS } = require("./VARS")
+const cors=require("cors")
 
 try {
     app.listen(VARS.PORT, () => console.log(`Listening on port ${VARS.PORT}`))
+    app.use(cors())
 } catch (error) {
     console.log("Server is already running !!")
 }
@@ -26,7 +28,7 @@ app.get("/getBestMove", (req, res) => {
 
     var turn = req.query.turn || "w"
     //var engine_type = req.query.engine_type || VARS.ENGINE_TYPES[0]
-    var engine_name = req.query.engine_name || "stockfish-15.exe"
+    var engine_name = req.query.engine_name || "stockfish.exe"
     var engine_mode = req.query.engine_mode || 0
 
 
