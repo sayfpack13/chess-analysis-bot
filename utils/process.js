@@ -7,7 +7,7 @@ const fs = require('fs');
 const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
   return new Promise((resolve, reject) => {
     const engines_path = path.resolve(process.cwd(), 'utils/engine');
-    const engine_path = path.resolve(process.cwd(), 'utils/engine',engine_name);
+    const engine_path = path.resolve(engines_path, engine_name);
 
     if (!fs.existsSync(engine_path)) {
       reject("Engine not found: " + engine_name);
@@ -15,9 +15,9 @@ const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
 
     console.log("Using engine: " + engine_name);
 
-    const engine = spawn(engine_name, { 
+    const engine = spawn(`"${engine_path}"`, { 
       shell: true,
-      cwd:engines_path
+      cwd: engines_path
     });
 
     engine.stdin.write(`${command}\n`);
