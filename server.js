@@ -44,13 +44,9 @@ app.get("/getBestMove", (req, res) => {
 
         const parsedResult = {
             fen: result.fen,
-<<<<<<< Updated upstream
             move: result.bestMove,
-            ponder: result.possibleHumanMove,
-=======
             bestMove: result.bestMove,
             ponder: result.ponder,
->>>>>>> Stashed changes
             turn: result.turn,
             depth: depth,
             movetime: movetime,

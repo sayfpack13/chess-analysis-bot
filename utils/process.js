@@ -15,11 +15,7 @@ const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
 
     console.log("Using engine: " + engine_name);
 
-<<<<<<< Updated upstream
-    const engine = spawn(`"${engine_path}"`, { 
-=======
     const engine = spawn(engine_path, {
->>>>>>> Stashed changes
       shell: true,
       cwd: engines_path
     });
