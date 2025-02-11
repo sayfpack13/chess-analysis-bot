@@ -44,7 +44,6 @@ app.get("/getBestMove", (req, res) => {
 
         const parsedResult = {
             fen: result.fen,
-            move: result.bestMove,
             bestMove: result.bestMove,
             ponder: result.ponder,
             turn: result.turn,
