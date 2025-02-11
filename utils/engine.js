@@ -57,14 +57,13 @@ class ChessEngine {
 
 
     return {
+      ...engineResult,
       id: id,
       fen: this.getLastFen(),
       turn: this.turn,
-      setDepth: this.depth,
-      engineDepth: engineResult.depth,
-      selDepth: engineResult.seldepth,
+      depth: this.depth,
       bestMove: engineResult.bestmove,
-      possibleHumanMove: engineResult.possible_human_move,
+      ponder: engineResult.possible_human_move
     }
   }
 }

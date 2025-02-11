@@ -15,7 +15,11 @@ const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
 
     console.log("Using engine: " + engine_name);
 
+<<<<<<< Updated upstream
     const engine = spawn(`"${engine_path}"`, { 
+=======
+    const engine = spawn(engine_path, {
+>>>>>>> Stashed changes
       shell: true,
       cwd: engines_path
     });
@@ -23,7 +27,7 @@ const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
     engine.stdin.write(`${command}\n`);
     engine.stdin.write(`${engineCmd}\n`);
 
-    
+
 
 
     engine.stdout.on('data', (chunk) => {
@@ -48,7 +52,7 @@ const executeEngine = (command, engineCmd = 'go depth 10', engine_name) => {
     engine.on('error', (err) => {
       reject(err);
     });
-    
+
     engine.stderr.on('data', (data) => {
       reject(data);
     });

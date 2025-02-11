@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const { ChessEngine } = require("./utils/engine")
 const { VARS } = require("./VARS")
-const cors=require("cors")
+const cors = require("cors")
 
 try {
     app.listen(VARS.PORT, () => console.log(`Listening on port ${VARS.PORT}`))
@@ -37,15 +37,20 @@ app.get("/getBestMove", (req, res) => {
     }
 
     counter++
-    console.log("\n#" + counter + ") turn updated to: " + (turn === 'w' ? 'White' : 'Black'))
+    console.log("\n#" + counter + " turn updated to: " + (turn === 'w' ? 'White' : 'Black'))
 
 
     chessEngine.start(counter, engine_mode, turn, depth, movetime, engine_name, fen).then((result) => {
 
         const parsedResult = {
             fen: result.fen,
+<<<<<<< Updated upstream
             move: result.bestMove,
             ponder: result.possibleHumanMove,
+=======
+            bestMove: result.bestMove,
+            ponder: result.ponder,
+>>>>>>> Stashed changes
             turn: result.turn,
             depth: depth,
             movetime: movetime,
@@ -54,11 +59,10 @@ app.get("/getBestMove", (req, res) => {
         }
 
 
-        console.log("Request #" + result.id + " Done !!")
-        //console.log(parsedResult)
-        return res.send(parsedResult)
+        console.log("#" + result.id + " best move: " + parsedResult.bestMove)
+        return res.send({ success: true, data: parsedResult })
     }).catch((error) => {
         console.log("Error: " + error)
-        return res.send({ response: false })
+        return res.send({ success: false, data: error.message })
     })
 })

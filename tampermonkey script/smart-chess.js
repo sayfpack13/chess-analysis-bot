@@ -3,7 +3,7 @@
 // @name:fr     Smart Chess Bot: Le système d'analyse ultime pour les échecs
 // @namespace   sayfpack13
 // @author      sayfpack13
-// @version     8.5.2
+// @version     8.6
 // @homepageURL https://github.com/sayfpack13/chess-analysis-bot
 // @supportURL  https://mmgc.ninja/
 // @match       https://www.chess.com/*
@@ -13,7 +13,7 @@
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getResourceText
 // @grant       GM_registerMenuCommand
-// @connect     localhost
+// @connect     *
 // @description 	Our chess analysis system is designed to give players the edge they need to win. By using advanced algorithms and cutting-edge technology, our system can analyze any chess position and suggest the best possible move, helping players to make smarter and more informed decisions on the board.
 // @description:fr 	Notre système d'analyse d'échecs est conçu pour donner aux joueurs l'avantage dont ils ont besoin pour gagner. En utilisant des algorithmes avancés et des technologies de pointe, notre système peut analyser n'importe quelle position d'échecs et suggérer le meilleur coup possible, aidant les joueurs à prendre des décisions plus intelligentes et plus éclairées sur l'échiquier.
 // @require     https://greasyfork.org/scripts/460400-usergui-js/code/userguijs.js?version=1157130
@@ -36,7 +36,6 @@ const repositoryRawURL = 'https://raw.githubusercontent.com/sayfpack13/chess-ana
 const LICHESS_API = "https://lichess.org/api/cloud-eval";
 const CHESS_COM = 0;
 const LICHESS_ORG = 1;
-const TURN_UPDATE_FIX = false;
 
 
 const MAX_DEPTH = 20;
@@ -65,7 +64,8 @@ var node_engine_url = "http://localhost:5000";              // node server api u
 var node_engine_name = "stockfish-15.exe"                   // default engine name (node server engine only)
 var current_depth = Math.round(MAX_DEPTH / 2);              // current engine depth
 var current_movetime = Math.round(MAX_MOVETIME / 3);        // current engine move time
-var max_best_moves = 1;
+var max_best_moves = Math.floor(current_depth / 2);
+var bestMoveColors = [];
 
 var lastBestMoveID = 0;
 
@@ -86,7 +86,8 @@ const dbValues = {
     node_engine_name: "node_engine_name",
     current_depth: "current_depth",
     current_movetime: "current_movetime",
-    max_best_moves: "max_best_moves"
+    max_best_moves: "max_best_moves",
+    bestMoveColors: "bestMoveColors"
 };
 
 
@@ -130,24 +131,9 @@ var myScore = 0;
 
 var possible_moves = [];
 
+var updatingBestMove = false;
 
 // style
-const best_move_color = [0, 0, 250, 0.5];
-const opposite_best_move_color = [250, 0, 0, 0.5];
-const possible_moves_colors = [
-    //[r,g,b,a]
-    [200, 180, 0, 0.9],
-    [150, 180, 0, 0.9],
-    [100, 180, 0, 0.9],
-    [50, 180, 0, 0.9]
-]
-const opposite_possible_moves_colors = [
-    //[r,g,b,a]
-    [250, 200, 200, 0.9],
-    [250, 150, 150, 0.9],
-    [250, 100, 100, 0.9],
-    [250, 50, 50, 0.9]
-]
 const defaultFromSquareStyle = 'border: 4px solid rgb(0 0 0 / 50%);';
 const defaultToSquareStyle = 'border: 4px dashed rgb(0 0 0 / 50%);';
 
@@ -173,7 +159,7 @@ onload = function () {
     waitingMessage.style.fontSize = '2rem';
     waitingMessage.style.textAlign = 'center';
     waitingMessage.textContent = '♟️ Smart Chess Bot is waiting for your game ♟️';
-    waitingMessage.style.zIndex="100000";
+    waitingMessage.style.zIndex = "100000";
     document.body.appendChild(waitingMessage);
 
 
@@ -220,7 +206,6 @@ if (!isNotCompatibleBrowser()) {
 
 
 
-
 function moveResult(from, to, power, clear = true) {
     if (from.length < 2 || to.length < 2) {
         return;
@@ -229,7 +214,6 @@ function moveResult(from, to, power, clear = true) {
     if (clear) {
         clearBoard();
     }
-
 
     if (!forcedBestMove) {
         if (isPlayerTurn) // my turn
@@ -244,19 +228,25 @@ function moveResult(from, to, power, clear = true) {
     }
 
 
+    const color = hexToRgb(bestMoveColors[0]);
+    Interface.boardUtils.markMove(from, to, color);
 
-    // remove duplicated best moves
-    possible_moves = removeDuplicates(possible_moves).slice(0, max_best_moves - 1);
 
+    // other suggested moves
     for (let a = 0; a < possible_moves.length; a++) {
-        Interface.boardUtils.markMove(possible_moves[a].slice(0, 2), possible_moves[a].slice(2, 4), (isPlayerTurn ? possible_moves_colors[a] : opposite_possible_moves_colors[a]));
+        const color = hexToRgb(bestMoveColors[a]);
+        Interface.boardUtils.markMove(possible_moves[a].slice(0, 2), possible_moves[a].slice(2, 4), color);
     }
-
-    Interface.boardUtils.markMove(from, to, (isPlayerTurn ? best_move_color : opposite_best_move_color));
-
 
 
     Interface.stopBestMoveProcessingAnimation();
+}
+
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b, 0.5];
 }
 
 
@@ -284,7 +274,7 @@ function getBookMoves(request) {
                 let nextMove = data.pvs[0].moves.split(' ')[0];
 
 
-
+                possible_moves = [];
                 moveResult(nextMove.slice(0, 2), nextMove.slice(2, 4), current_depth, true);
             }
 
@@ -308,10 +298,11 @@ function getNodeBestMoves(request) {
             "Content-Type": "application/json"
         },
         onload: function (response) {
-            if (response.response == "false") {
+            const result = JSON.parse(response.response);
+            if (result.success == "false") {
                 forcedBestMove = false;
                 Gui.document.querySelector('#bestmove-btn').disabled = false;
-                return Interface.log("check node server logs !!");
+                return Interface.log("Error: " + result.data);
             }
 
             if (lastBestMoveID != request.id) {
@@ -319,12 +310,13 @@ function getNodeBestMoves(request) {
             }
 
 
-            let data = JSON.parse(response.response);
+            let data = result.data;
             let server_fen = data.fen;
             let depth = data.depth;
             let movetime = data.movetime;
             let power = data.score;
-            let move = data.move;
+            let move = data.bestMove;
+            let ponder = data.ponder
 
 
 
@@ -334,8 +326,10 @@ function getNodeBestMoves(request) {
                 Interface.updateBestMoveProgress(`Move time: ${movetime} ms`);
             }
 
+            Interface.engineLog("bestmove " + move + " ponder " + ponder);
 
 
+            possible_moves = [];
             moveResult(move.slice(0, 2), move.slice(2, 4), power, true);
         }, onerror: function (error) {
             forcedBestMove = false;
@@ -580,8 +574,16 @@ function FenUtils() {
         let basicFen = this.getBasicFen();
         let rights = this.getRights();
 
-        return `${basicFen} ${last_turn || turn} ${rights} - 0 1`;
-    }
+        // Extract the turn from the FEN string
+        let turn = this.getTurnFromFen(basicFen);
+
+        return `${basicFen} ${turn} ${rights} - 0 1`;
+    };
+
+    this.getTurnFromFen = (fen) => {
+        // The turn is the second part of the FEN string
+        return fen.split(' ')[1] || (last_turn || turn);
+    };
 }
 
 
@@ -788,11 +790,9 @@ function markMoveToSite(fromSquare, toSquare, rgba_color) {
             activeSiteMoveHighlights.push(highlightElem);
 
 
-            if (TURN_UPDATE_FIX == true) {
-                existingHighLight = document.querySelector(`.custom.highlight.${squareClass}`);
-            } else {
-                existingHighLight = document.querySelector(`.highlight.${squareClass}`);
-            }
+
+            existingHighLight = document.querySelector(`.highlight.${squareClass}`);
+
 
             if (existingHighLight) {
                 existingHighLight.remove();
@@ -859,94 +859,6 @@ function removeSiteMoveMarkings() {
 
 
 
-function getTurn() {
-
-    const getSquareNumber = (elem) => {
-        for (var a = 0; a < elem.classList.length; a++) {
-            if (elem.classList[a].includes("square")) {
-                return elem.classList[a];
-            }
-        }
-        return "";
-    }
-
-    const getSimiliarChessPiece = (squareNumber) => {
-        let similiarChessPieces = chessBoardElem.querySelectorAll("." + squareNumber);
-
-        for (var a = 0; a < similiarChessPieces.length; a++) {
-            if (similiarChessPieces[a].classList.contains("piece") == true) {
-                return similiarChessPieces[a];
-            }
-        }
-        return null;
-    }
-
-    const getChessPieceColor = (elem) => {
-        for (var a = 0; a < elem.classList.length; a++) {
-            if (elem.classList[a].length <= 2) {
-                if (elem.classList[a][0] == "b") {
-                    return "b";
-                } else {
-                    return "w";
-                }
-            }
-        }
-        return "";
-    }
-
-
-
-    Interface.boardUtils.removeBestMarkings();
-
-    removeSiteMoveMarkings();
-
-
-    let chessPieces = chessBoardElem.querySelectorAll(".highlight");
-
-    for (var a = 0; a < chessPieces.length; a++) {
-
-        // exclude custom highlighted squares
-        if (chessPieces[a].classList.contains("custom") == true) {
-            continue;
-        }
-
-
-
-        let squareNumber = getSquareNumber(chessPieces[a]);
-        if (squareNumber == "") {
-            return "";
-        }
-
-
-
-        let similiarChessPiece = getSimiliarChessPiece(squareNumber);
-
-        if (similiarChessPiece == null) {
-            continue;
-        }
-
-
-
-        let chessPieceColor = getChessPieceColor(similiarChessPiece);
-
-        if (chessPieceColor == "") {
-            return "";
-        }
-
-
-
-
-        if (chessPieceColor == "b") {
-            return "w";
-        } else if (chessPieceColor == "w") {
-            return "b";
-        }
-    }
-
-
-
-    return "";
-}
 
 function updateBestMove(mutationArr) {
     const FenUtil = new FenUtils();
@@ -975,18 +887,12 @@ function updateBestMove(mutationArr) {
 
 
 
-                // fix turn method
-                if (TURN_UPDATE_FIX && getTurn() != "") {
-                    turn = getTurn();
-                }
-
                 Interface.log(`Turn updated to ${turn}!`);
+
+                updateBoard();
+                sendBestMove();
             }
         }
-
-
-        updateBoard();
-        sendBestMove();
     }
 }
 
@@ -1063,8 +969,6 @@ function sleep(ms) {
 }
 
 function getBestMoves(request) {
-
-
     if (engineIndex != node_engine_id && CURRENT_SITE !== LICHESS_ORG) {
         // local engines
         while (!engine) {
@@ -1085,21 +989,18 @@ function getBestMoves(request) {
             }
             if (e.data.includes('bestmove')) {
                 let move = e.data.split(' ')[1];
-
-
-
                 moveResult(move.slice(0, 2), move.slice(2, 4), current_depth, true);
-            }
-
-            else if (e.data.includes('info')) {
-
+            } else if (e.data.includes('info')) {
                 const infoObj = LozzaUtils.extractInfo(e.data);
                 let depth = infoObj.depth || current_depth;
                 let move_time = infoObj.time || current_movetime;
 
-                let possible_move = e.data.slice(e.data.lastIndexOf("pv"), e.data.length).split(" ")[1];
-                possible_moves.push(possible_move);
-
+                // Limit possible_moves to max_best_moves
+                possible_moves = e.data.slice(e.data.lastIndexOf("pv"), e.data.length)
+                    .split(" ")
+                    .slice(1)
+                    .filter((_, index) => index % 2 === 0)
+                    .slice(1, max_best_moves);
 
 
                 if (engineMode == DEPTH_MODE) {
@@ -1107,39 +1008,36 @@ function getBestMoves(request) {
                 } else {
                     Interface.updateBestMoveProgress(`Move time: ${move_time} ms`);
                 }
-
             }
             Interface.engineLog(e.data);
         };
-
     } else {
         getNodeBestMoves(request);
     }
 }
 
-var updatingBestMove = false;
+
+
 
 function observeNewMoves() {
-    updateBestMove();
-
-    const boardObserver = new MutationObserver(mutationArr => {
+    const handleMutation = (mutationArr) => {
         lastPlayerColor = playerColor;
 
         updatePlayerColor(() => {
             if (playerColor != lastPlayerColor) {
                 Interface.log(`Player color changed from ${lastPlayerColor} to ${playerColor}!`);
-
                 updateBestMove();
             } else {
                 updateBestMove(mutationArr);
             }
         });
+    };
 
-
-    });
-
+    const boardObserver = new MutationObserver(handleMutation);
     boardObserver.observe(chessBoardElem, { childList: true, subtree: true, attributes: true });
 }
+
+
 
 function addGuiPages() {
     if (Gui?.document) return;
@@ -1575,7 +1473,16 @@ function addGuiPages() {
                 <div id="max-moves-div" style="display:${node_engine_id == engineIndex ? 'none' : 'block'};">
                     <div>
                         <label for="reload-count">Max Best Moves</label>
-                        <input type="number" min="1" max="4" id="max-moves" value="${max_best_moves}">
+                        <input type="number" min="1" max="${Math.floor(current_depth / 2)}" id="max-moves" value="${max_best_moves}">
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">Best Moves Colors:</h4>
+                            <div id="best-moves-colors">
+                                
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1668,11 +1575,41 @@ async function resetSettings() {
     initialize();
 }
 
+
+function updateBestMoveColors() {
+    // Preserve existing colors and add new ones if needed
+    bestMoveColors = Array.from({ length: max_best_moves }, (_, i) => bestMoveColors[i] || getRandomColor());
+    GM_setValue(dbValues.bestMoveColors, bestMoveColors);
+
+    const bestMovesContainer = Gui.document.getElementById("best-moves-colors");
+
+    bestMovesContainer.innerHTML = "";
+
+    bestMoveColors.forEach((color, index) => {
+        const moveDiv = document.createElement("div");
+
+        moveDiv.innerHTML = `
+            <label for="best-move-color-${index}">Best Move ${index + 1}:</label>
+            <input type="color" id="best-move-color-${index}" value="${color}">
+        `;
+
+        bestMovesContainer.appendChild(moveDiv);
+
+        Gui.document.getElementById(`best-move-color-${index}`).addEventListener("change", (event) => {
+            bestMoveColors[index] = event.target.value;
+            GM_setValue(dbValues.bestMoveColors, bestMoveColors);
+        });
+    });
+}
+
+
 function openGUI() {
-
-
-
     Gui.open(() => {
+
+
+
+        updateBestMoveColors();
+
         const bodyElem = Gui.document.querySelector("body");
         const cardElem = Gui.document.querySelectorAll(".card");
         const cardTitleElem = Gui.document.querySelectorAll(".card-title");
@@ -1713,6 +1650,11 @@ function openGUI() {
         const nightModeElem = Gui.document.querySelector('#night-mode');
         const tutoElem = Gui.document.querySelector('#tuto');
         const resetElem = Gui.document.querySelector('#reset-settings');
+
+
+
+
+
 
 
         const setNightClassName = (elem) => {
@@ -1956,27 +1898,30 @@ function openGUI() {
 
 
         depthRangeElem.onchange = () => {
-            changeEnginePower(depthRangeElem.value, eloElem);
+            changeEnginePower(depthRangeElem.value, eloElem, maxMovesElem);
         };
 
         depthRangeNumberElem.onchange = () => {
-            changeEnginePower(depthRangeNumberElem.value, eloElem);
+            changeEnginePower(depthRangeNumberElem.value, eloElem, maxMovesElem);
         };
 
 
         maxMovesElem.onchange = () => {
             max_best_moves = maxMovesElem.value;
             GM_setValue(dbValues.max_best_moves, max_best_moves);
+
+
+            updateBestMoveColors();
         };
 
 
 
         moveTimeRangeElem.onchange = () => {
-            changeEnginePower(moveTimeRangeElem.value, eloElem);
+            changeEnginePower(moveTimeRangeElem.value, eloElem, maxMovesElem);
         };
 
         moveTimeRangeNumberElem.onchange = () => {
-            changeEnginePower(moveTimeRangeNumberElem.value, eloElem);
+            changeEnginePower(moveTimeRangeNumberElem.value, eloElem, maxMovesElem);
         };
 
         showOppositeMovesElem.onchange = () => {
@@ -2028,18 +1973,31 @@ function openGUI() {
     });
 }
 
-function changeEnginePower(val, eloElem) {
+
+function getRandomColor() {
+    return `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
+}
+
+
+function changeEnginePower(val, eloElem, maxMovesElem) {
     if (engineMode == DEPTH_MODE) {
-        current_depth = val
+        current_depth = val;
+        max_best_moves = Math.floor(current_depth / 2);
         GM_setValue(dbValues.current_depth, current_depth);
+        GM_setValue(dbValues.max_best_moves, max_best_moves);
+
+        updateBestMoveColors();
+
+        maxMovesElem.value = max_best_moves;
     } else {
-        current_movetime = val
+        current_movetime = val;
         GM_setValue(dbValues.current_movetime, current_movetime);
     }
 
-
     setEloDescription(eloElem);
 }
+
+
 
 function reloadChessEngine(forced, callback) {
     // reload only if using local engines
@@ -2094,11 +2052,16 @@ function loadChessEngine(callback) {
 function updatePlayerColor(callback) {
     const boardOrientation = Interface.getBoardOrientation();
 
-    playerColor = boardOrientation;
-    turn = boardOrientation;
+    if (boardOrientation) {
+        playerColor = boardOrientation;
+        turn = boardOrientation;
 
-
-    Interface.boardUtils.updateBoardOrientation(playerColor);
+        Interface.boardUtils.updateBoardOrientation(playerColor);
+    } else {
+        // Fallback: Use the last known player color
+        playerColor = lastPlayerColor || 'w';
+        turn = playerColor;
+    }
 
     callback();
 }
@@ -2135,21 +2098,9 @@ if (typeof GM_registerMenuCommand == 'function') {
 
 
 async function initializeDatabase(callback) {
-    nightMode = false;
-    engineMode = 0;
-    engineIndex = 0;
-    reload_engine = false;
-    reload_every = 10;
-    enableUserLog = true;
-    enableEngineLog = true;
-    displayMovesOnSite = false;
-    show_opposite_moves = false;
-    use_book_moves = false;
-    node_engine_url = "http://localhost:5000";
-    node_engine_name = "stockfish-15.exe"
-    current_depth = Math.round(MAX_DEPTH / 2);
-    current_movetime = Math.round(MAX_MOVETIME / 3);
-    max_best_moves = 1;
+
+
+
 
     if (GM_getValue(dbValues.nightMode) == undefined) {
         await GM_setValue(dbValues.nightMode, nightMode);
@@ -2167,6 +2118,8 @@ async function initializeDatabase(callback) {
         await GM_setValue(dbValues.current_depth, current_depth);
         await GM_setValue(dbValues.current_movetime, current_movetime);
         await GM_setValue(dbValues.max_best_moves, max_best_moves);
+        await GM_setValue(dbValues.bestMoveColors, bestMoveColors);
+
         callback();
     } else {
         nightMode = await GM_getValue(dbValues.nightMode);
@@ -2184,6 +2137,10 @@ async function initializeDatabase(callback) {
         current_depth = await GM_getValue(dbValues.current_depth);
         current_movetime = await GM_getValue(dbValues.current_movetime);
         max_best_moves = await GM_getValue(dbValues.max_best_moves);
+        bestMoveColors = await GM_getValue(dbValues.bestMoveColors);
+
         callback();
     }
+
+
 }
